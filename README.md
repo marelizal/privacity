@@ -6,7 +6,7 @@ CLI tool that fetches the fastest public VPN Gate servers and connects via OpenV
 
 ```bash
 sudo make install
-sudo make completions   # bash/zsh autocompletado
+sudo make completions   # bash/zsh completion
 ```
 
 ## Usage
