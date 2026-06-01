@@ -16,11 +16,15 @@
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status    Show connection details and live speed
+#     privacity update    Pull latest version from git and reinstall
 #     privacity help      This message
 #
 # Install:
 #   sudo make install
 #   sudo make completions
+
+VERSION="1.0.0"
+REPO_URL="https://github.com/marelizal/privacity.git"
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -431,6 +435,31 @@ cmd_reconnect() {
   fi
 }
 
+# ──────── Update ─────────────────────────────────────────────────────────────
+# I clone the latest version from the repository, reinstall, and clean up.
+# This saves the user from having to track updates manually.
+
+cmd_update() {
+  command -v git &>/dev/null || die "git is required to update. Install: sudo apt install git"
+
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  trap 'rm -rf "$tmpdir"' RETURN
+
+  log "Downloading latest version..."
+  if ! git clone --depth=1 "$REPO_URL" "$tmpdir" 2>/dev/null; then
+    die "Failed to clone repository. Check your connection."
+  fi
+
+  cd "$tmpdir"
+
+  log "Installing..."
+  sudo make install
+  sudo make completions 2>/dev/null || true
+
+  log "Updated to version $(sed -n 's/^VERSION="\(.*\)"$/\1/p' privacity)"
+}
+
 # ──────── Help ──────────────────────────────────────────────────────────────
 cmd_help() {
   printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n"
@@ -445,6 +474,7 @@ cmd_help() {
   printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
   printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
   printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
+  printf "    ${GREEN}privacity update${NC}      Pull latest version and reinstall\n"
   printf "    ${GREEN}privacity help${NC}        Show this message\n"
   printf "\n"
   printf "  ${BOLD}INSTALL${NC}\n"
@@ -487,6 +517,10 @@ main() {
 
     status|st)
       cmd_status
+      ;;
+
+    update|up)
+      cmd_update
       ;;
 
     help|--help|-h)
