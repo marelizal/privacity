@@ -53,9 +53,9 @@ fi
 # ──────── Logging helpers ───────────────────────────────────────────────────
 # I prefix every line with a clear symbol so the user can scan the output and
 # immediately tell what kind of message they are looking at.
-log()    { printf "${BOLD}${GREEN}[*]${NC} %s\n" "$*"; }
-warn()   { printf "${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
-error()  { printf "${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
+log()    { printf "  ${BOLD}${GREEN}[*]${NC} %s\n" "$*"; }
+warn()   { printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
+error()  { printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
 info()   { printf "  ${CYAN}%s${NC}\n" "$*"; }
 dim()    { printf "${DIM}%s${NC}\n" "$*"; }
 die()    { error "$1"; exit 1; }
