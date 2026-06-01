@@ -275,6 +275,10 @@ connect_interactive() {
   fi
 
   printf "\r     \n"
+
+  local speed_mbps
+  speed_mbps=$(measure_speed)
+
   header
 
   local ext_ip ping_ms rx1 rx2 tx1 tx2
@@ -290,7 +294,8 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
   printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
   printf "  ${DIM}↓ 0 KB/s  |  ↑ 0 KB/s${NC}\n"
-  printf "  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n"
+  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Download" "${speed_mbps} Mbps"
+  printf "  ${GREEN}✓${NC} VPN active. ${BOLD}Q${NC} disconnect  ${BOLD}S${NC} switch\n"
 
   # Live speed loop — I sample the byte counters every two seconds and compute
   # the transfer rate.
@@ -302,7 +307,7 @@ connect_interactive() {
     rx1=$rx2
     tx1=$tx2
 
-    printf "\033[2A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[2B\r"
+    printf "\033[3A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[3B\r"
 
     read -r -s -t 2 -n1 key || true
     if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
@@ -314,10 +319,19 @@ connect_interactive() {
       break
     fi
 
+    if [[ -n "${key:-}" && "${key,,}" == "s" ]]; then
+      printf "\n\n"
+      log "Switching server..."
+      sudo kill "$ovpn_pid" 2>/dev/null || true
+      wait "$ovpn_pid" 2>/dev/null || true
+      log "Disconnected"
+      return 1
+    fi
+
     if ! kill -0 "$ovpn_pid" 2>/dev/null; then
       printf "\n\n"
       warn "VPN connection was lost."
-      break
+      return 1
     fi
   done
 }
@@ -456,13 +470,13 @@ cmd_reconnect() {
   fi
 }
 
-# ──────── Update ─────────────────────────────────────────────────────────────
-# I clone the latest version from the repository, reinstall, and clean up.
-# This saves the user from having to track updates manually.
+# ──────── Speed test ────────────────────────────────────────────────────────────────────────
+# I download a 10 MiB file from Cloudflare's edge network and compute the
+# average throughput in Mbps.  The result is written to stdout so callers can
+# capture it with $(…).
 
-# ──────── Speed test ──────────────────────────────────────────────────────────
-cmd_speedtest() {
-  local bytes=12500000  # 10 Mib
+measure_speed() {
+  local bytes=12500000
   local max_time=15
   local tmp
   tmp=$(mktemp)
@@ -475,11 +489,21 @@ cmd_speedtest() {
   local speed_kbps
   speed_kbps=$(cat "$tmp" 2>/dev/null || echo "0")
   rm -f "$tmp"
+
+  echo "scale=1; $speed_kbps * 8 / 1000 / 1000" | bc -l 2>/dev/null || echo "?"
+}
+
+cmd_speedtest() {
+  printf "\n"
   local speed_mbps
-  speed_mbps=$(echo "scale=1; $speed_kbps * 8 / 1000 / 1000" | bc -l 2>/dev/null || echo "?")
+  speed_mbps=$(measure_speed)
   log "Download speed: ${BOLD}${speed_mbps} Mbps${NC}"
   printf "\n"
 }
+
+# ──────── Update ─────────────────────────────────────────────────────────────
+# I clone the latest version from the repository, reinstall, and clean up.
+# This saves the user from having to track updates manually.
 
 cmd_update() {
   command -v git &>/dev/null || die "git is required to update. Install: sudo apt install git"
@@ -577,37 +601,39 @@ main() {
 
     *)
       # Default: interactive guided mode.
-      header
+      while true; do
+        header
 
-      if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
-        fetch_servers
-      else
-        log "Downloading server list from VPN Gate..."
-      fi
+        if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
+          fetch_servers
+        else
+          log "Downloading server list from VPN Gate..."
+        fi
 
-      mapfile -t servers < <(parse_servers)
-      ((${#servers[@]})) || die "No valid servers found."
-      log "Analysing servers by score..."
+        mapfile -t servers < <(parse_servers)
+        ((${#servers[@]})) || die "No valid servers found."
+        log "Analysing servers by score..."
 
-      show_top "${servers[@]}"
+        show_top "${servers[@]}"
 
-      local best="${servers[0]}"
-      local h c
-      h=$(echo "$best" | cut -d'|' -f1)
-      c=$(echo "$best" | cut -d'|' -f2)
-      local s
-      s=$(echo "$best" | cut -d'|' -f4)
+        local best="${servers[0]}"
+        local h c
+        h=$(echo "$best" | cut -d'|' -f1)
+        c=$(echo "$best" | cut -d'|' -f2)
+        local s
+        s=$(echo "$best" | cut -d'|' -f4)
 
-      log "Best option found: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
+        log "Best option found: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
 
-      printf "\n  ${YELLOW}${BOLD}[?]${NC} Connect? ${DIM}[Y/n]${NC} "
-      read -r yn
-      if [[ "${yn,,}" == "n" ]]; then
-        info "Cancelled."
-        exit 0
-      fi
+        printf "\n  ${YELLOW}${BOLD}[?]${NC} Connect? ${DIM}[Y/n]${NC} "
+        read -r yn
+        if [[ "${yn,,}" == "n" ]]; then
+          info "Cancelled."
+          exit 0
+        fi
 
-      connect_interactive "$best"
+        connect_interactive "$best" && break
+      done
       ;;
   esac
 }
