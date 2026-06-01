@@ -261,21 +261,21 @@ connect_interactive() {
     if ! kill -0 "$ovpn_pid" 2>/dev/null; then
       break
     fi
-    printf "\r  ${spin[$i]} Starting OpenVPN...   "
+    printf "\r  ${spin[$i]}   "
     i=$(( (i + 1) % 4 ))
     sleep 1
   done
 
   if ! $connected; then
-    printf "\r  ${RED}x${NC} Starting OpenVPN...   \n"
+    printf "\r  ${RED}x${NC}\n"
     error "Connection timed out or failed."
     sudo kill "$ovpn_pid" 2>/dev/null || true
     wait "$ovpn_pid" 2>/dev/null || true
     return 1
   fi
 
-  printf "\r  ${GREEN}✓${NC} Starting OpenVPN...   \n"
-  log "Connected!"
+  printf "\r     \n"
+  header
 
   local ext_ip ping_ms rx1 rx2 tx1 tx2
   ext_ip=$(get_external_ip)
