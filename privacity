@@ -253,16 +253,15 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s\n" "Host"    "$hostname"
   printf "  ${BOLD}%-14s${NC} %s\n" "Country" "$country_long"
   printf "  ${BOLD}%-14s${NC} %s\n" "Score"   "$(printf "%'d" "$score")"
-  dim "  ──────────────────────────────────────\n"
-
-  log "Starting OpenVPN..."
+  dim "  ──────────────────────────────────────"
 
   sudo openvpn --config "$OVPN_CONFIG" --verb 0 &>/dev/null &
   local ovpn_pid=$!
 
-  # I wait up to twenty seconds for the tun0 interface to appear, which is
-  # OpenVPN's way of telling us the tunnel is established.
-  local connected=false
+  # I show a spinner while waiting up to twenty seconds for the tun0
+  # interface, which is OpenVPN's way of signalling the tunnel is up.
+  local spin=('-' '\' '|' '/')
+  local i=0 connected=false
   for attempt in $(seq 1 20); do
     if ip link show tun0 &>/dev/null 2>&1; then
       connected=true
@@ -271,17 +270,20 @@ connect_interactive() {
     if ! kill -0 "$ovpn_pid" 2>/dev/null; then
       break
     fi
+    printf "\r  ${spin[$i]} Starting OpenVPN...   "
+    i=$(( (i + 1) % 4 ))
     sleep 1
   done
 
   if ! $connected; then
+    printf "\r  ${RED}x${NC} Starting OpenVPN...   \n"
     error "Connection timed out or failed."
     sudo kill "$ovpn_pid" 2>/dev/null || true
     wait "$ovpn_pid" 2>/dev/null || true
     return 1
   fi
 
-  printf "\n"
+  printf "\r  ${GREEN}✓${NC} Starting OpenVPN...   \n"
   log "Connected!"
   dim "  ──────────────────────────────────────"
 
@@ -297,9 +299,9 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s\n" "External IP" "$ext_ip"
   printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
   printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
-  dim "  ──────────────────────────────────────\n"
+  dim "  ──────────────────────────────────────"
 
-  printf "  ${YELLOW}${BOLD}[*]${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n\n"
+  printf "\n  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n\n"
 
   # Live speed loop — I sample the byte counters every two seconds and compute
   # the transfer rate.
