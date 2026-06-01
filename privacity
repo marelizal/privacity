@@ -460,6 +460,27 @@ cmd_reconnect() {
 # I clone the latest version from the repository, reinstall, and clean up.
 # This saves the user from having to track updates manually.
 
+# ──────── Speed test ──────────────────────────────────────────────────────────
+cmd_speedtest() {
+  local bytes=12500000  # 10 Mib
+  local max_time=15
+  local tmp
+  tmp=$(mktemp)
+
+  run_with_spinner \
+    "Testing download speed..." \
+    "curl -s --max-time \"$max_time\" \"https://speed.cloudflare.com/__down?bytes=$bytes\" -o /dev/null -w \"%{speed_download}\" > \"$tmp\" 2>/dev/null" \
+    || true
+
+  local speed_kbps
+  speed_kbps=$(cat "$tmp" 2>/dev/null || echo "0")
+  rm -f "$tmp"
+  local speed_mbps
+  speed_mbps=$(echo "scale=1; $speed_kbps * 8 / 1000 / 1000" | bc -l 2>/dev/null || echo "?")
+  log "Download speed: ${BOLD}${speed_mbps} Mbps${NC}"
+  printf "\n"
+}
+
 cmd_update() {
   command -v git &>/dev/null || die "git is required to update. Install: sudo apt install git"
 
@@ -493,6 +514,7 @@ cmd_help() {
   printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
   printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
   printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
+  printf "    ${GREEN}privacity speedtest${NC}   Measure download speed via Cloudflare\n"
   printf "    ${GREEN}privacity update${NC}      Pull latest version and reinstall\n"
   printf "    ${GREEN}privacity help${NC}        Show this message\n"
   printf "\n"
@@ -543,6 +565,10 @@ main() {
 
     update|up)
       cmd_update
+      ;;
+
+    speedtest|speed)
+      cmd_speedtest
       ;;
 
     help|--help|-h)
