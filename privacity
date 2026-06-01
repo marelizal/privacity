@@ -57,7 +57,7 @@ fi
 # ──────── Logging helpers ───────────────────────────────────────────────────
 # I prefix every line with a clear symbol so the user can scan the output and
 # immediately tell what kind of message they are looking at.
-log()    { printf "  ${BOLD}${GREEN}[*]${NC} %s\n" "$*"; }
+log()    { printf "  ${BOLD}${GREEN}✓${NC} %s\n" "$*"; }
 warn()   { printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
 error()  { printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
 info()   { printf "  ${CYAN}%s${NC}\n" "$*"; }
@@ -78,11 +78,9 @@ header() {
 
 fetch_servers() {
   mkdir -p "$DIR"
-  info "Downloading server list from VPN Gate..."
   if ! wget -q -O "$CSV" --timeout=15 "http://www.vpngate.net/api/iphone/"; then
     die "Failed to download server list. Check your connection."
   fi
-  log "Server list downloaded"
 }
 
 parse_servers() {
@@ -122,7 +120,7 @@ show_top() {
     score=$(echo "${servers[$i]}" | cut -d'|' -f4)
 
     local marker
-    ((i==0)) && marker="${GREEN}${BOLD}[*]${NC} " || marker="   "
+    ((i==0)) && marker="${GREEN}${BOLD}✓${NC} " || marker="  "
 
     printf "  ${marker}%-20s  %-30s  ${YELLOW}%'10d${NC}\n" \
       "$country_long" "$hostname" "$score"
@@ -416,7 +414,9 @@ cmd_reconnect() {
   cmd_disconnect 2>/dev/null || true
   sleep 1
   fetch_servers
+  log "Downloading server list from VPN Gate..."
   mapfile -t servers < <(parse_servers)
+  log "Analysing servers by score..."
   ((${#servers[@]})) || die "No servers available."
 
   local best="${servers[0]}"
@@ -426,7 +426,7 @@ cmd_reconnect() {
   local s
   s=$(echo "$best" | cut -d'|' -f4)
 
-  log "Reconnecting to ${h} (${c}) — score: $(printf "%'d" "$s")"
+  log "Best option found: ${h} (${c}) — score: $(printf "%'d" "$s")"
 
   if [[ "$mode" == "daemon" ]]; then
     connect_daemon "$best"
@@ -502,8 +502,10 @@ main() {
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
       fi
+      log "Downloading server list from VPN Gate..."
       mapfile -t servers < <(parse_servers)
       ((${#servers[@]})) || die "No servers found."
+      log "Analysing servers by score..."
       connect_daemon "${servers[0]}"
       ;;
 
@@ -534,11 +536,11 @@ main() {
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
       fi
-
-      info "Analysing servers by score..."
+      log "Downloading server list from VPN Gate..."
 
       mapfile -t servers < <(parse_servers)
       ((${#servers[@]})) || die "No valid servers found."
+      log "Analysing servers by score..."
 
       show_top "${servers[@]}"
 
@@ -549,7 +551,7 @@ main() {
       local s
       s=$(echo "$best" | cut -d'|' -f4)
 
-      log "Best: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
+      log "Best option found: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
 
       printf "\n  ${YELLOW}${BOLD}[?]${NC} Connect? ${DIM}[Y/n]${NC} "
       read -r yn
