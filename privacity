@@ -225,7 +225,7 @@ connect_interactive() {
 
   log "Starting OpenVPN..."
 
-  sudo openvpn --config "$OVPN_CONFIG" --verb 3 &
+  sudo openvpn --config "$OVPN_CONFIG" --verb 0 &>/dev/null &
   local ovpn_pid=$!
 
   # I wait up to twenty seconds for the tun0 interface to appear, which is
