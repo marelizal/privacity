@@ -443,8 +443,8 @@ cmd_update() {
   command -v git &>/dev/null || die "git is required to update. Install: sudo apt install git"
 
   local tmpdir
-  tmpdir=$(mktemp -d)
-  trap 'rm -rf "$tmpdir"' RETURN
+  tmpdir=$(mktemp -d) || die "Failed to create temp directory."
+  trap 'rm -rf "${tmpdir:-}"' RETURN
 
   log "Downloading latest version..."
   if ! git clone --depth=1 "$REPO_URL" "$tmpdir" 2>/dev/null; then
@@ -454,8 +454,8 @@ cmd_update() {
   cd "$tmpdir"
 
   log "Installing..."
-  sudo make install
-  sudo make completions 2>/dev/null || true
+  sudo make install >/dev/null 2>&1
+  sudo make completions >/dev/null 2>&1 || true
 
   log "Updated to version $(sed -n 's/^VERSION="\(.*\)"$/\1/p' privacity)"
 }
