@@ -478,7 +478,7 @@ cmd_update() {
   sudo make install >/dev/null 2>&1
   sudo make completions >/dev/null 2>&1 || true
 
-  log "Updated to version $(bash -c 'source privacity 2>/dev/null; echo "$VERSION"' 2>/dev/null || echo "?")"
+  log "Updated to version $(eval "$(grep '^readonly VERSION=' privacity | cut -d'"' -f2)" 2>/dev/null || echo "?")"
 }
 
 # ──────── Help ──────────────────────────────────────────────────────────────
