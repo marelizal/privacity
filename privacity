@@ -304,7 +304,7 @@ connect_interactive() {
 
     printf "\033[2A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[2B\r"
 
-    read -r -t 2 -n1 key || true
+    read -r -s -t 2 -n1 key || true
     if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
       printf "\n\n"
       log "Disconnecting..."
