@@ -290,7 +290,7 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
   printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
   printf "  ${DIM}↓ 0 KB/s  |  ↑ 0 KB/s${NC}\n"
-  printf "\n  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n"
+  printf "  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n"
 
   # Live speed loop — I sample the byte counters every two seconds and compute
   # the transfer rate.
@@ -302,7 +302,7 @@ connect_interactive() {
     rx1=$rx2
     tx1=$tx2
 
-    printf "\033[A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[B"
+    printf "\033[2A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[2B\r"
 
     read -r -t 2 -n1 key || true
     if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
