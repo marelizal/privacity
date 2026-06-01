@@ -430,7 +430,17 @@ cmd_help() {
 main() {
   trap 'printf "\n"; exit 1' INT TERM
 
-  command -v openvpn &>/dev/null || die "OpenVPN no encontrado. Instala: sudo apt install openvpn"
+  local deps=(
+    "openvpn:OpenVPN no encontrado. Instala: sudo apt install openvpn"
+    "wget:wget no encontrado. Instala: sudo apt install wget"
+    "curl:curl no encontrado. Instala: sudo apt install curl"
+    "base64:base64 no encontrado. Instala: sudo apt install coreutils"
+    "sudo:sudo no encontrado"
+  )
+  for dep in "${deps[@]}"; do
+    local cmd="${dep%%:*}" msg="${dep#*:}"
+    command -v "$cmd" &>/dev/null || die "$msg"
+  done
 
   local cmd="${1:-}"
   shift 2>/dev/null || true
