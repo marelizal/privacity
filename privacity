@@ -247,13 +247,6 @@ connect_interactive() {
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
-  clear
-  printf "\n${BLUE}  :: privacity :: connecting${NC}\n"
-  dim "  ──────────────────────────────────────"
-  printf "  ${BOLD}%-14s${NC} %s\n" "Host"    "$hostname"
-  printf "  ${BOLD}%-14s${NC} %s\n" "Country" "$country_long"
-  printf "  ${BOLD}%-14s${NC} %s\n" "Score"   "$(printf "%'d" "$score")"
-
   sudo openvpn --config "$OVPN_CONFIG" --verb 0 &>/dev/null &
   local ovpn_pid=$!
 
