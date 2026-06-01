@@ -250,10 +250,9 @@ connect_interactive() {
   clear
   printf "\n${BLUE}  :: privacity :: connecting${NC}\n"
   dim "  ──────────────────────────────────────"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Host"    "$hostname"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Country" "$country_long"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Score"   "$(printf "%'d" "$score")"
-  dim "  ──────────────────────────────────────"
+  printf "  ${BOLD}%-14s${NC} %s\n" "Host"    "$hostname"
+  printf "  ${BOLD}%-14s${NC} %s\n" "Country" "$country_long"
+  printf "  ${BOLD}%-14s${NC} %s\n" "Score"   "$(printf "%'d" "$score")"
 
   sudo openvpn --config "$OVPN_CONFIG" --verb 0 &>/dev/null &
   local ovpn_pid=$!
@@ -283,7 +282,7 @@ connect_interactive() {
     return 1
   fi
 
-  printf "\r  ${GREEN}✓${NC} ${BOLD}Starting OpenVPN...${NC}   \n"
+  printf "\r  ${GREEN}✓${NC} Starting OpenVPN...   \n"
   log "Connected!"
   dim "  ──────────────────────────────────────"
 
@@ -297,8 +296,8 @@ connect_interactive() {
   tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
 
   printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "External IP" "$ext_ip"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC} ms\n" "Ping" "$ping_ms"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Location" "$country_long"
+  printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
+  printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
   dim "  ──────────────────────────────────────"
 
   printf "\n  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n\n"
