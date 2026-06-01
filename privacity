@@ -3,7 +3,7 @@
 # privacity — Conector automático para VPN Gate con CLI guiado y modo daemon
 #
 # Autor:  Martín
-# Licencia: MIT (ver archivo LICENSE)
+# Licencia: GPL v3 (ver archivo LICENSE)
 #
 # Creé esta herramienta para encontrar y conectarme rápidamente a los
 # servidores públicos de VPN Gate con mejor puntuación, sin tener que

@@ -50,4 +50,4 @@ privacity help          # Show help
 
 ## License
 
-MIT
+GPL v3
