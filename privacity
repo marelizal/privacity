@@ -23,7 +23,7 @@
 #   sudo make install
 #   sudo make completions
 
-VERSION="1.0.0"
+readonly VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.0.0")"
 REPO_URL="https://github.com/marelizal/privacity.git"
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
@@ -66,7 +66,7 @@ die()    { error "$1"; exit 1; }
 
 header() {
   clear
-  printf "\n  ${BOLD}${WHITE}privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n\n"
+  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n\n"
 }
 
 # ──────── Spinner helper ─────────────────────────────────────────────────────
@@ -396,7 +396,7 @@ cmd_status() {
     IFS='|' read -r hostname country_long < "$LAST_HOST"
   fi
 
-  printf "\n  ${BOLD}${WHITE}privacity${NC} ${DIM}status${NC}\n"
+  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}status${NC}\n"
 
   if ip link show tun0 &>/dev/null 2>&1; then
     printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
@@ -478,12 +478,12 @@ cmd_update() {
   sudo make install >/dev/null 2>&1
   sudo make completions >/dev/null 2>&1 || true
 
-  log "Updated to version $(sed -n 's/^VERSION="\(.*\)"$/\1/p' privacity)"
+  log "Updated to version $(sed -n 's/^.*VERSION="\(.*\)"$/\1/p' privacity)"
 }
 
 # ──────── Help ──────────────────────────────────────────────────────────────
 cmd_help() {
-  printf "\n  ${BOLD}${WHITE}privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n"
+  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n"
   printf "  ${BOLD}USAGE${NC}\n"
   printf "    privacity ${DIM}[command]${NC}\n"
   printf "\n"
