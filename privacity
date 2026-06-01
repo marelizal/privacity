@@ -66,8 +66,7 @@ die()    { error "$1"; exit 1; }
 
 header() {
   clear
-  printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n"
-  printf "${DIM}  ──────────────────────────────────────${NC}\n\n"
+  printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n\n"
 }
 
 # ──────── Spinner helper ─────────────────────────────────────────────────────
@@ -277,7 +276,6 @@ connect_interactive() {
 
   printf "\r  ${GREEN}✓${NC} Starting OpenVPN...   \n"
   log "Connected!"
-  dim "  ──────────────────────────────────────"
 
   local ext_ip ping_ms rx1 rx2 tx1 tx2
   ext_ip=$(get_external_ip)
@@ -291,7 +289,6 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "External IP" "$ext_ip"
   printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
   printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
-  dim "  ──────────────────────────────────────"
 
   printf "\n  ${GREEN}✓${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n\n"
 
@@ -400,7 +397,6 @@ cmd_status() {
   fi
 
   printf "\n${BLUE}  :: privacity :: status${NC}\n"
-  dim "  ──────────────────────────────────────"
 
   if ip link show tun0 &>/dev/null 2>&1; then
     printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
@@ -428,7 +424,7 @@ cmd_status() {
     printf "  ${BOLD}%-14s${NC} ${RED}Disconnected${NC}\n" "Status"
   fi
 
-  dim "  ──────────────────────────────────────\n"
+  printf "\n"
 }
 
 # ──────── Reconnect ─────────────────────────────────────────────────────────
@@ -488,8 +484,6 @@ cmd_update() {
 # ──────── Help ──────────────────────────────────────────────────────────────
 cmd_help() {
   printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n"
-  dim "  ──────────────────────────────────────"
-  printf "\n"
   printf "  ${BOLD}USAGE${NC}\n"
   printf "    privacity ${DIM}[command]${NC}\n"
   printf "\n"
