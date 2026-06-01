@@ -401,6 +401,38 @@ cmd_reconnect() {
   fi
 }
 
+# ──────── Verificación e instalación de dependencias ───────────────────────
+# Si falta un programa necesario, pregunto si quiero instalarlo antes de
+# rendirme.  sudo es especial — si no existe, no hay manera de instalarlo.
+
+check_deps() {
+  local missing=0
+  for dep in openvpn wget curl base64; do
+    if ! command -v "$dep" &>/dev/null; then
+      local pkg
+      case "$dep" in
+        openvpn) pkg="openvpn" ;;
+        wget)    pkg="wget" ;;
+        curl)    pkg="curl" ;;
+        base64)  pkg="coreutils" ;;
+      esac
+      warn "$dep no está instalado."
+      printf "  ${YELLOW}${BOLD}[?]${NC} ¿Instalar ${pkg}? ${DIM}[Y/n]${NC} "
+      read -r yn
+      if [[ "${yn,,}" != "n" ]]; then
+        log "Instalando ${pkg}..."
+        sudo apt install -y "$pkg" || die "Falló la instalación de ${pkg}."
+      else
+        die "$dep es necesario para ejecutar privacity."
+      fi
+      missing=1
+    fi
+  done
+  if ! command -v sudo &>/dev/null; then
+    die "sudo no encontrado. Instálalo manualmente."
+  fi
+}
+
 # ──────── Ayuda ─────────────────────────────────────────────────────────────
 cmd_help() {
   printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n"
@@ -430,17 +462,7 @@ cmd_help() {
 main() {
   trap 'printf "\n"; exit 1' INT TERM
 
-  local deps=(
-    "openvpn:OpenVPN no encontrado. Instala: sudo apt install openvpn"
-    "wget:wget no encontrado. Instala: sudo apt install wget"
-    "curl:curl no encontrado. Instala: sudo apt install curl"
-    "base64:base64 no encontrado. Instala: sudo apt install coreutils"
-    "sudo:sudo no encontrado"
-  )
-  for dep in "${deps[@]}"; do
-    local cmd="${dep%%:*}" msg="${dep#*:}"
-    command -v "$cmd" &>/dev/null || die "$msg"
-  done
+  check_deps
 
   local cmd="${1:-}"
   shift 2>/dev/null || true
