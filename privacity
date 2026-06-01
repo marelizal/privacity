@@ -1,36 +1,41 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# privacity — VPN Gate auto-connector with guided CLI and daemon mode
+# privacity — Conector automático para VPN Gate con CLI guiado y modo daemon
 #
-# I built this to quickly find and connect to the fastest public VPN Gate
-# servers without having to dig through their web interface.  It picks the
-# server with the highest score, downloads its OpenVPN config, and handles
-# the whole connection lifecycle.
+# Autor:  Martín
+# Licencia: MIT (ver archivo LICENSE)
 #
-#   Commands:
-#     privacity           Interactive guided mode (default)
-#     privacity daemon    Connect in background – no terminal needed
-#     privacity disconnect  Tear down the current VPN
-#     privacity reconnect   Pick a new server and reconnect
-#     privacity status    Show connection details and live speed
-#     privacity help      This message
+# Creé esta herramienta para encontrar y conectarme rápidamente a los
+# servidores públicos de VPN Gate con mejor puntuación, sin tener que
+# revisar su interfaz web manualmente.  El script elige el servidor con
+# el Score más alto, descarga su configuración OpenVPN y gestiona todo
+# el ciclo de vida de la conexión.
 #
-# Install:  sudo cp privacity /usr/local/bin/privacity
-#           sudo chmod +x /usr/local/bin/privacity
+#   Comandos:
+#     privacity             Modo interactivo guiado (por defecto)
+#     privacity daemon      Conectar en background — sin terminal
+#     privacity disconnect  Cerrar la VPN actual
+#     privacity reconnect   Elegir un nuevo servidor y reconectar
+#     privacity status      Mostrar detalles de la conexión y velocidad
+#     privacity help        Este mensaje
+#
+# Instalación:
+#   sudo make install
+#   sudo make completions
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ──────── Paths & defaults ──────────────────────────────────────────────────
-# I keep everything under XDG_DATA_HOME so it follows the Freedesktop spec.
+# ──────── Rutas y valores por defecto ───────────────────────────────────────
+# Guardo todo bajo XDG_DATA_HOME para seguir el estándar Freedesktop.
 DIR="${XDG_DATA_HOME:-$HOME/.local/share}/privacity"
 CSV="$DIR/servers.csv"
 OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
 LAST_HOST="$DIR/last_host"
 
-# ──────── Colours (only when stdout is a terminal) ──────────────────────────
-# I use tput instead of hard-coded escape sequences so the script works on
-# any terminal that supports terminfo.
+# ──────── Colores (solo cuando stdout es una terminal) ──────────────────────
+# Uso tput en lugar de escapes ANSI duros para que funcione en cualquier
+# terminal que soporte terminfo.
 if [[ -t 1 ]]; then
   BOLD=$(tput bold)
   DIM=$(tput dim)
@@ -46,9 +51,9 @@ else
   BLUE=""; CYAN=""; WHITE=""; NC=""
 fi
 
-# ──────── Logging helpers ───────────────────────────────────────────────────
-# I prefix every line with a clear symbol so the user can scan the output and
-# immediately tell what kind of message they are looking at.
+# ──────── Funciones de log ──────────────────────────────────────────────────
+# Antepongo un símbolo claro a cada línea para que el usuario pueda
+# identificar de un vistazo el tipo de mensaje.
 log()    { printf "${BOLD}${GREEN}[*]${NC} %s\n" "$*"; }
 warn()   { printf "${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
 error()  { printf "${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
@@ -62,19 +67,18 @@ header() {
   printf "${DIM}  ──────────────────────────────────────${NC}\n\n"
 }
 
-# ──────── Server list: fetch & parse ────────────────────────────────────────
-# VPN Gate exposes a CSV endpoint at /api/iphone/.  The first two lines are
-# metadata, then every subsequent line is a server.  I grab the top 50 by
-# default and sort them by score descending – the higher the score, the better
-# the server is supposed to be.
+# ──────── Descarga y parseo de servidores ───────────────────────────────────
+# VPN Gate expone un CSV en /api/iphone/.  Las primeras dos líneas son
+# metadatos; cada línea siguiente es un servidor.  Tomo los primeros 50
+# y los ordeno por Score descendente — a mayor Score, mejor servidor.
 
 fetch_servers() {
   mkdir -p "$DIR"
-  info "Downloading server list from VPN Gate..."
+  info "Descargando lista de servidores desde VPN Gate..."
   if ! wget -q -O "$CSV" --timeout=15 "http://www.vpngate.net/api/iphone/"; then
-    die "Failed to download server list. Check your connection."
+    die "No se pudo descargar la lista. Verifica tu conexión."
   fi
-  log "Server list downloaded"
+  log "Lista de servidores descargada"
 }
 
 parse_servers() {
@@ -87,9 +91,9 @@ parse_servers() {
   sort -t'|' -k4 -rn
 }
 
-# ──────── Network helpers ───────────────────────────────────────────────────
-# I need a few lightweight checks to report connection quality back to the
-# user – nothing fancy, just an external IP lookup and a quick ping.
+# ──────── Utilidades de red ─────────────────────────────────────────────────
+# Necesito algunas comprobaciones ligeras para mostrar calidad de conexión:
+# una consulta de IP externa y un ping rápido.
 
 get_external_ip() {
   curl -s --max-time 5 https://ifconfig.me 2>/dev/null || echo "-"
@@ -100,9 +104,9 @@ get_ping() {
     sed -n 's/.*time=\([0-9.]*\) ms/\1/p' || echo "-"
 }
 
-# ──────── Top-server display ────────────────────────────────────────────────
-# I show the best three candidates so the user knows what they are getting.
-# The first entry gets an eye-catching [*] marker.
+# ──────── Mostrar mejores servidores ────────────────────────────────────────
+# Muestro los tres mejores candidatos para que el usuario sepa qué va
+# a usar.  El primero lleva un marcador [*] llamativo.
 
 show_top() {
   local servers=("$@")
@@ -122,10 +126,10 @@ show_top() {
   printf "\n"
 }
 
-# ──────── OpenVPN config generation ─────────────────────────────────────────
-# I decode the Base64 config that VPN Gate provides, write it to a local file,
-# and inject the data-ciphers line that OpenVPN ≥2.7 needs to avoid cipher
-# negotiation errors with older servers.
+# ──────── Generación de configuración OpenVPN ───────────────────────────────
+# Decodifico la configuración Base64 que entrega VPN Gate, la escribo a
+# un archivo local e inyecto la línea data-ciphers que OpenVPN ≥ 2.7
+# necesita para evitar errores de negociación de cifrado.
 
 write_config() {
   local base64_data="$1"
@@ -136,9 +140,10 @@ write_config() {
   fi
 }
 
-# ──────── Daemon helpers ────────────────────────────────────────────────────
-# I save the PID of the background OpenVPN process so disconnect / status /
-# reconnect can find it later without having to grep through the process table.
+# ──────── Helpers para modo daemon ──────────────────────────────────────────
+# Guardo el PID del proceso OpenVPN en background para que los comandos
+# disconnect / status / reconnect puedan encontrarlo sin tener que
+# recorrer la tabla de procesos.
 
 save_pid() {
   echo "$1" > "$PID_FILE"
@@ -160,10 +165,10 @@ read_host() {
   fi
 }
 
-# ──────── Connection (interactive) ─────────────────────────────────────────
-# This is the main guided flow: find the best server, show it, ask for
-# confirmation, connect, and then enter a live-monitoring loop that displays
-# download / upload speed until the user presses Q.
+# ──────── Conexión interactiva ─────────────────────────────────────────────
+# Flujo guiado principal: buscar el mejor servidor, mostrarlo, pedir
+# confirmación, conectar y entrar en un bucle de monitoreo en vivo que
+# muestra velocidad de descarga/subida hasta que el usuario presiona Q.
 
 connect_interactive() {
   local entry="$1"
@@ -184,13 +189,13 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s\n" "Score"   "$(printf "%'d" "$score")"
   dim "  ──────────────────────────────────────\n"
 
-  log "Starting OpenVPN..."
+  log "Iniciando OpenVPN..."
 
   sudo openvpn --config "$OVPN_CONFIG" --verb 3 &
   local ovpn_pid=$!
 
-  # I wait up to twenty seconds for the tun0 interface to appear, which is
-  # OpenVPN's way of telling us the tunnel is established.
+  # Espero hasta veinte segundos a que aparezca la interfaz tun0, que es
+  # la señal que da OpenVPN cuando el túnel está establecido.
   local connected=false
   for attempt in $(seq 1 20); do
     if ip link show tun0 &>/dev/null 2>&1; then
@@ -204,22 +209,22 @@ connect_interactive() {
   done
 
   if ! $connected; then
-    error "Connection timed out or failed."
+    error "La conexión falló o se agotó el tiempo de espera."
     sudo kill "$ovpn_pid" 2>/dev/null || true
     wait "$ovpn_pid" 2>/dev/null || true
     return 1
   fi
 
   printf "\n"
-  log "Connected!"
+  log "Conectado!"
   dim "  ──────────────────────────────────────"
 
   local ext_ip ping_ms rx1 rx2 tx1 tx2
   ext_ip=$(get_external_ip)
   ping_ms=$(get_ping)
 
-  # I read the initial byte counters so I can compute deltas for the speed
-  # display.
+  # Leo los contadores de bytes iniciales para poder calcular los deltas
+  # de velocidad más adelante.
   rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
   tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
 
@@ -228,10 +233,10 @@ connect_interactive() {
   printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
   dim "  ──────────────────────────────────────\n"
 
-  printf "  ${YELLOW}${BOLD}[*]${NC} VPN active. Press ${BOLD}${RED}Q${NC} to disconnect\n\n"
+  printf "  ${YELLOW}${BOLD}[*]${NC} VPN activa. Presiona ${BOLD}${RED}Q${NC} para desconectar\n\n"
 
-  # Live speed loop — I sample the byte counters every two seconds and compute
-  # the transfer rate.
+  # Bucle de velocidad en vivo — muestreo los contadores de bytes cada dos
+  # segundos y calculo la tasa de transferencia.
   while true; do
     rx2=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
     tx2=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
@@ -245,24 +250,25 @@ connect_interactive() {
     read -r -t 2 -n1 key || true
     if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
       printf "\n\n"
-      log "Disconnecting..."
+      log "Desconectando..."
       sudo kill "$ovpn_pid" 2>/dev/null || true
       wait "$ovpn_pid" 2>/dev/null || true
-      log "Disconnected"
+      log "Desconectado"
       break
     fi
 
     if ! kill -0 "$ovpn_pid" 2>/dev/null; then
       printf "\n\n"
-      warn "VPN connection was lost."
+      warn "La conexión VPN se perdió."
       break
     fi
   done
 }
 
-# ──────── Daemon (background) mode ─────────────────────────────────────────
-# The daemon subcommand is for users who do not want to keep a terminal open.
-# I spin up OpenVPN in the background with --daemon, store the PID, and exit.
+# ──────── Modo daemon (background) ──────────────────────────────────────────
+# El subcomando daemon está pensado para quien no quiere mantener una
+# terminal abierta.  Lanzo OpenVPN en background con --daemon, guardo el
+# PID y salgo.
 
 connect_daemon() {
   local entry="$1"
@@ -275,58 +281,59 @@ connect_daemon() {
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
-  log "Starting OpenVPN in daemon mode..."
+  log "Iniciando OpenVPN en modo daemon..."
   sudo openvpn --config "$OVPN_CONFIG" \
     --daemon \
     --log "$DIR/openvpn.log" \
     --writepid "$PID_FILE"
 
-  # I give the daemon a few seconds to negotiate the tunnel.
+  # Le doy al daemon unos segundos para negociar el túnel.
   sleep 3
 
   if ip link show tun0 &>/dev/null 2>&1; then
-    log "Connected to ${hostname} (${country_long})"
+    log "Conectado a ${hostname} (${country_long})"
     printf "\n"
-    dim "  Run ${BOLD}privacity status${NC}${DIM} to check the connection${NC}"
-    dim "  Run ${BOLD}privacity disconnect${NC}${DIM} to tear it down${NC}"
+    dim "  Ejecuta ${BOLD}privacity status${NC}${DIM} para ver la conexión${NC}"
+    dim "  Ejecuta ${BOLD}privacity disconnect${NC}${DIM} para cerrarla${NC}"
   else
-    warn "Daemon started but no tunnel detected – check $DIR/openvpn.log"
+    warn "El daemon se inició pero no se detectó el túnel — revisa $DIR/openvpn.log"
   fi
 }
 
-# ──────── Disconnect ────────────────────────────────────────────────────────
-# I kill the saved PID and clean up the tunnel.  If a PID file is missing I
-# fall back to killing openvpn by config path.
+# ──────── Desconexión ───────────────────────────────────────────────────────
+# Mato el PID guardado y limpio el túnel.  Si no hay archivo PID, busco
+# procesos openvpn por la ruta de configuración como fallback.
 
 cmd_disconnect() {
   local pid
   pid=$(read_pid)
 
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-    log "Disconnecting (PID $pid)..."
+    log "Desconectando (PID $pid)..."
     sudo kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   else
-    # Fallback: kill any openvpn that is using our config file.
-    log "No saved PID found – looking for active OpenVPN processes..."
+    # Fallback: matar cualquier openvpn que esté usando nuestro archivo
+    # de configuración.
+    log "No se encontró el PID guardado — buscando procesos activos..."
     local pids
     pids=$(pgrep -f "openvpn.*$OVPN_CONFIG" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
       sudo kill $pids 2>/dev/null || true
     else
-      warn "No active VPN connection found."
+      warn "No se encontró una conexión VPN activa."
       return 1
     fi
   fi
 
   rm -f "$PID_FILE" "$LAST_HOST"
-  log "Disconnected"
+  log "Desconectado"
 }
 
-# ──────── Status ────────────────────────────────────────────────────────────
-# I report back everything the user needs to know: whether the tunnel is up,
-# the external IP, the ping time, the current transfer rates, and which server
-# is being used.
+# ──────── Estado ────────────────────────────────────────────────────────────
+# Muestro todo lo que el usuario necesita saber: si el túnel está activo,
+# la IP externa, el ping, las tasas de transferencia y qué servidor se
+# está usando.
 
 cmd_status() {
   local hostname country_long
@@ -338,17 +345,17 @@ cmd_status() {
   dim "  ──────────────────────────────────────"
 
   if ip link show tun0 &>/dev/null 2>&1; then
-    printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Server" "${hostname:---}"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Country" "${country_long:---}"
+    printf "  ${BOLD}%-14s${NC} ${GREEN}Conectado${NC}\n" "Estado"
+    printf "  ${BOLD}%-14s${NC} %s\n" "Servidor" "${hostname:---}"
+    printf "  ${BOLD}%-14s${NC} %s\n" "País" "${country_long:---}"
 
     local ext_ip ping_ms
     ext_ip=$(get_external_ip)
     ping_ms=$(get_ping)
-    printf "  ${BOLD}%-14s${NC} %s\n" "External IP" "$ext_ip"
+    printf "  ${BOLD}%-14s${NC} %s\n" "IP externa" "$ext_ip"
     printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
 
-    # One-shot speed (two-second sample).
+    # Una medición única de velocidad (muestra de dos segundos).
     local rx1 rx2 tx1 tx2
     rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
     tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
@@ -358,17 +365,17 @@ cmd_status() {
     local rx_speed=$(( (rx2 - rx1) / 2048 ))
     local tx_speed=$(( (tx2 - tx1) / 2048 ))
 
-    printf "  ${BOLD}%-14s${NC} ↓ %d KB/s  ↑ %d KB/s\n" "Speed" "$rx_speed" "$tx_speed"
+    printf "  ${BOLD}%-14s${NC} ↓ %d KB/s  ↑ %d KB/s\n" "Velocidad" "$rx_speed" "$tx_speed"
   else
-    printf "  ${BOLD}%-14s${NC} ${RED}Disconnected${NC}\n" "Status"
+    printf "  ${BOLD}%-14s${NC} ${RED}Desconectado${NC}\n" "Estado"
   fi
 
   dim "  ──────────────────────────────────────\n"
 }
 
-# ──────── Reconnect ─────────────────────────────────────────────────────────
-# I tear down the current connection, pick the best server from a fresh list,
-# and connect again — either interactively or in daemon mode.
+# ──────── Reconexión ────────────────────────────────────────────────────────
+# Cierro la conexión actual, elijo el mejor servidor de una lista nueva y
+# vuelvo a conectar — ya sea en modo interactivo o daemon.
 
 cmd_reconnect() {
   local mode="${1:-daemon}"
@@ -376,7 +383,7 @@ cmd_reconnect() {
   sleep 1
   fetch_servers
   mapfile -t servers < <(parse_servers)
-  ((${#servers[@]})) || die "No servers available."
+  ((${#servers[@]})) || die "No hay servidores disponibles."
 
   local best="${servers[0]}"
   local h c
@@ -385,7 +392,7 @@ cmd_reconnect() {
   local s
   s=$(echo "$best" | cut -d'|' -f4)
 
-  log "Reconnecting to ${h} (${c}) — score: $(printf "%'d" "$s")"
+  log "Reconectando a ${h} (${c}) — score: $(printf "%'d" "$s")"
 
   if [[ "$mode" == "daemon" ]]; then
     connect_daemon "$best"
@@ -394,49 +401,48 @@ cmd_reconnect() {
   fi
 }
 
-# ──────── Help ──────────────────────────────────────────────────────────────
+# ──────── Ayuda ─────────────────────────────────────────────────────────────
 cmd_help() {
   printf "\n${BLUE}  :: ${BOLD}${WHITE}privacity${NC}${BLUE} :: VPN Gate Client${NC}\n"
   dim "  ──────────────────────────────────────"
   printf "\n"
-  printf "  ${BOLD}USAGE${NC}\n"
-  printf "    privacity ${DIM}[command]${NC}\n"
+  printf "  ${BOLD}USO${NC}\n"
+  printf "    privacity ${DIM}[comando]${NC}\n"
   printf "\n"
-  printf "  ${BOLD}COMMANDS${NC}\n"
-  printf "    ${GREEN}privacity${NC}        Interactive guided mode (default)\n"
-  printf "    ${GREEN}privacity daemon${NC}  Connect in background – no terminal needed\n"
-  printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
-  printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
-  printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
-  printf "    ${GREEN}privacity help${NC}        Show this message\n"
+  printf "  ${BOLD}COMANDOS${NC}\n"
+  printf "    ${GREEN}privacity${NC}        Modo interactivo guiado (por defecto)\n"
+  printf "    ${GREEN}privacity daemon${NC}  Conectar en background — sin terminal\n"
+  printf "    ${GREEN}privacity disconnect${NC}  Cerrar la conexión VPN\n"
+  printf "    ${GREEN}privacity reconnect${NC}   Elegir nuevo servidor y reconectar\n"
+  printf "    ${GREEN}privacity status${NC}      Mostrar estado y velocidad en vivo\n"
+  printf "    ${GREEN}privacity help${NC}        Mostrar este mensaje\n"
   printf "\n"
-  printf "  ${BOLD}INSTALL${NC}\n"
-  printf "    sudo cp privacity /usr/local/bin/privacity\n"
-  printf "    sudo chmod +x /usr/local/bin/privacity\n"
+  printf "  ${BOLD}INSTALACIÓN${NC}\n"
+  printf "    sudo make install\n"
+  printf "    sudo make completions\n"
   printf "\n"
 }
 
-# ──────── Main dispatch ─────────────────────────────────────────────────────
-# I parse the first argument as a subcommand and dispatch to the appropriate
-# function.  If no subcommand is given I default to the interactive guided
-# flow.
+# ──────── Despacho principal ────────────────────────────────────────────────
+# Analizo el primer argumento como subcomando y derivo a la función que
+# corresponda.  Si no hay subcomando, ejecuto el flujo interactivo.
 
 main() {
   trap 'printf "\n"; exit 1' INT TERM
 
-  command -v openvpn &>/dev/null || die "OpenVPN not found. Install: sudo apt install openvpn"
+  command -v openvpn &>/dev/null || die "OpenVPN no encontrado. Instala: sudo apt install openvpn"
 
   local cmd="${1:-}"
   shift 2>/dev/null || true
 
   case "$cmd" in
     daemon|d)
-      # Background connect – useful for cron / scripts.
+      # Conexión en background — útil para cron / scripts.
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
       fi
       mapfile -t servers < <(parse_servers)
-      ((${#servers[@]})) || die "No servers found."
+      ((${#servers[@]})) || die "No se encontraron servidores."
       connect_daemon "${servers[0]}"
       ;;
 
@@ -457,17 +463,17 @@ main() {
       ;;
 
     *)
-      # Default: interactive guided mode.
+      # Por defecto: modo interactivo guiado.
       header
 
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
       fi
 
-      info "Analysing servers by score..."
+      info "Analizando servidores por puntuación..."
 
       mapfile -t servers < <(parse_servers)
-      ((${#servers[@]})) || die "No valid servers found."
+      ((${#servers[@]})) || die "No se encontraron servidores válidos."
 
       show_top "${servers[@]}"
 
@@ -478,12 +484,12 @@ main() {
       local s
       s=$(echo "$best" | cut -d'|' -f4)
 
-      log "Best: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
+      log "Mejor: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
 
-      printf "\n  ${YELLOW}${BOLD}[?]${NC} Connect? ${DIM}[Y/n]${NC} "
+      printf "\n  ${YELLOW}${BOLD}[?]${NC} ¿Conectar? ${DIM}[Y/n]${NC} "
       read -r yn
       if [[ "${yn,,}" == "n" ]]; then
-        info "Cancelled."
+        info "Cancelado."
         exit 0
       fi
 

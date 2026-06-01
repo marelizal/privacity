@@ -5,7 +5,8 @@ CLI tool that fetches the fastest public VPN Gate servers and connects via OpenV
 ## Install
 
 ```bash
-sudo ./install.sh
+sudo make install
+sudo make completions   # bash/zsh autocompletado
 ```
 
 ## Usage
@@ -46,3 +47,7 @@ privacity help          # Show help
   last_host         Last connected server hostname
   openvpn.log       OpenVPN daemon log
 ```
+
+## License
+
+MIT
