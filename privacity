@@ -70,6 +70,37 @@ header() {
   printf "${DIM}  ──────────────────────────────────────${NC}\n\n"
 }
 
+# ──────── Spinner helper ─────────────────────────────────────────────────────
+# I show an animated spinner while a command runs in the background, then
+# replace it with a green checkmark on success or a red cross on failure.
+
+run_with_spinner() {
+  local msg="$1"
+  local cmd="$2"
+
+  eval "$cmd" &
+  local pid=$!
+
+  local spin=('-' '\' '|' '/')
+  local i=0
+  while kill -0 "$pid" 2>/dev/null; do
+    printf "\r  ${spin[$i]} %s" "$msg"
+    i=$(( (i + 1) % 4 ))
+    sleep 0.1
+  done
+
+  wait "$pid"
+  local rc=$?
+
+  if [[ $rc -eq 0 ]]; then
+    printf "\r  ${GREEN}✓${NC} %s\n" "$msg"
+  else
+    printf "\r  ${RED}x${NC} %s\n" "$msg"
+  fi
+
+  return $rc
+}
+
 # ──────── Server list: fetch & parse ────────────────────────────────────────
 # VPN Gate exposes a CSV endpoint at /api/iphone/.  The first two lines are
 # metadata, then every subsequent line is a server.  I grab the top 50 by
@@ -78,9 +109,10 @@ header() {
 
 fetch_servers() {
   mkdir -p "$DIR"
-  if ! wget -q -O "$CSV" --timeout=15 "http://www.vpngate.net/api/iphone/"; then
-    die "Failed to download server list. Check your connection."
-  fi
+  run_with_spinner \
+    "Downloading server list from VPN Gate..." \
+    "wget -q -O \"$CSV\" --timeout=15 \"http://www.vpngate.net/api/iphone/\"" \
+    || die "Failed to download server list. Check your connection."
 }
 
 parse_servers() {
@@ -414,7 +446,6 @@ cmd_reconnect() {
   cmd_disconnect 2>/dev/null || true
   sleep 1
   fetch_servers
-  log "Downloading server list from VPN Gate..."
   mapfile -t servers < <(parse_servers)
   log "Analysing servers by score..."
   ((${#servers[@]})) || die "No servers available."
@@ -501,8 +532,9 @@ main() {
       # Background connect – useful for cron / scripts.
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
+      else
+        log "Downloading server list from VPN Gate..."
       fi
-      log "Downloading server list from VPN Gate..."
       mapfile -t servers < <(parse_servers)
       ((${#servers[@]})) || die "No servers found."
       log "Analysing servers by score..."
@@ -535,8 +567,9 @@ main() {
 
       if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
         fetch_servers
+      else
+        log "Downloading server list from VPN Gate..."
       fi
-      log "Downloading server list from VPN Gate..."
 
       mapfile -t servers < <(parse_servers)
       ((${#servers[@]})) || die "No valid servers found."
