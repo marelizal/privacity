@@ -69,8 +69,8 @@ cmd_update() {
   sudo make completions >/dev/null 2>&1 || true
 
   local new_version
-  new_version=$(sed -n '/^readonly VERSION=/ { s/^readonly VERSION="//; s/"$//; p }' privacity 2>/dev/null || echo "?")
-  log "Updated to version ${new_version}"
+  new_version=$(bash -c 'source lib/common.sh 2>/dev/null; echo "$VERSION"' 2>/dev/null || echo "?")
+  [[ "$new_version" != "?" ]] && log "Updated to version ${new_version}"
 }
 
 # ──────── Help ──────────────────────────────────────────────────────────────

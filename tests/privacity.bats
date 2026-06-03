@@ -117,6 +117,15 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [ "$output" -gt 0 ]
 }
 
+# ──────── version parsing ──────────────────────────────────────────────────
+
+@test "VERSION is parseable via bash eval" {
+  local vers
+  vers=$(bash -c 'source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh" 2>/dev/null; echo "$VERSION"' 2>/dev/null || echo "?")
+  [ "$vers" != "?" ]
+  [[ "$vers" =~ ^v?[0-9]+\.[0-9]+\.[0-9] ]]
+}
+
 # ──────── get_external_ip ──────────────────────────────────────────────────
 
 @test "get_external_ip returns dash on failure" {

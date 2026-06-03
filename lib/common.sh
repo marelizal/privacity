@@ -6,6 +6,7 @@ _PRIVACITY_COMMON_LOADED=1
 set -euo pipefail
 
 VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.0.0")"
+VERSION="${VERSION#v}"
 readonly VERSION
 
 PROFILE=""
