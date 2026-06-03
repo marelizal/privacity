@@ -5,7 +5,7 @@
 
 ---
 
-**English** · [Español](#español)
+**English** · [Español](#español) · [Documentation](docs/index.md)
 
 ---
 
@@ -136,6 +136,8 @@ make hooks
 ---
 
 ## Español
+
+[Documentación](docs/index.md)
 
 Herramienta CLI que obtiene los servidores públicos más rápidos de [VPN Gate](https://www.vpngate.net/) y se conecta vía OpenVPN — modo interactivo o daemon.
 
