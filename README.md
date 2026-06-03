@@ -1,19 +1,32 @@
 # privacity
 
+![tests](https://github.com/marelizal/privacity/actions/workflows/test.yml/badge.svg)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 CLI tool that fetches the fastest public [VPN Gate](https://www.vpngate.net/) servers and connects via OpenVPN — interactive or daemon mode.
 
 ## Features
 
-- 🔒 Sanitizes OpenVPN configs (strips `script-security`, `up`, `down`, etc.)
+- 🔒 Sanitizes OpenVPN configs (strips `script-security`, `up`, `down`, `persist-key`, etc.)
 - 🌐 Internet health check after connect (DNS + HTTP connectivity)
 - ⚡ Built-in speed test via Cloudflare
-- 🧪 12 bats tests — `shellcheck` clean
+- 🧪 23 bats tests — `shellcheck` clean (0 warnings)
+
+## Quick start
+
+```bash
+git clone https://github.com/marelizal/privacity.git
+cd privacity
+sudo make install
+sudo make completions
+privacity
+```
 
 ## Install
 
 ```bash
-sudo make install
-sudo make completions   # bash/zsh completion
+sudo make install          # installs to /usr/local/bin/
+sudo make completions      # bash/zsh completion
 ```
 
 ## Usage
@@ -31,13 +44,15 @@ privacity help          # Show help
 
 ## Requirements
 
-Runtime: `openvpn`, `wget`, `curl`, `base64`, `sudo`
-Dev: `shellcheck`, `bats` (for testing)
+| Runtime | Dev / testing |
+|---|---|
+| `openvpn`, `wget`, `curl` | `shellcheck`, `bats` |
+| `base64` (coreutils), `sudo` | `python3` (CSV parsing) |
 
 ## How it works
 
 1. Downloads server list from VPN Gate (HTTPS, fallback HTTP)
-2. Parses CSV with python3 `csv` module — handles quoted commas
+2. Parses CSV with python3 `csv` module — handles quoted commas in country names
 3. Selects highest-score server
 4. Decodes Base64 OpenVPN config, strips dangerous directives
 5. Connects via OpenVPN with `--cd "$DIR"` and `chmod 700` on data dir
@@ -45,6 +60,8 @@ Dev: `shellcheck`, `bats` (for testing)
 7. Measures download speed via Cloudflare
 8. Interactive mode: live RX/TX speed, IP, ping, location
 9. Press `Q` to disconnect, `S` to switch server
+
+See [FLOW.md](FLOW.md) for a detailed execution diagram.
 
 ## Directory layout
 
@@ -60,9 +77,17 @@ Dev: `shellcheck`, `bats` (for testing)
 ## Development
 
 ```bash
-bash -n privacity                    # syntax check
-shellcheck -s bash privacity         # static analysis
-sudo apt install bats && bats tests/ # unit tests
+# Syntax & lint
+bash -n privacity lib/*.sh
+shellcheck -s bash privacity lib/*.sh
+
+# Tests
+sudo apt install bats
+bats tests/*.bats
+
+# Standalone tools (for debugging)
+./lib/net.sh check
+./lib/speed.sh
 ```
 
 ## License

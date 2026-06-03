@@ -1,0 +1,21 @@
+name: test
+on: [push, pull_request]
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt update && sudo apt install -y shellcheck
+      - name: Run shellcheck
+        run: shellcheck privacity lib/*.sh
+
+  bats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y openvpn wget curl bc bats
+      - name: Run tests
+        run: bats tests/*.bats
