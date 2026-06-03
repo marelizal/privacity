@@ -12,9 +12,9 @@ _do_measure() {
 }
 
 _do_upload() {
-  dd if=/dev/urandom bs=1M count=10 2>/dev/null |
-    curl -s --max-time "$max_time" -X POST "https://speed.cloudflare.com/__up" \
-      --data-binary @- -o /dev/null -w "%{speed_upload}" > "$tmp" 2>/dev/null
+  dd if=/dev/urandom bs=1M count=4 2>/dev/null |
+    curl -s --max-time "$max_time" -X POST "https://nghttp2.org/anything" \
+      --data-binary @- -o /dev/null -w "%{speed_upload}" > "$tmp" 2>/dev/null || true
 }
 
 measure_upload_speed() {

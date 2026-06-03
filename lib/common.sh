@@ -14,6 +14,8 @@ OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
 LAST_HOST="$DIR/last_host"
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/config"
+LOG_FILE=""
+VERBOSE=false
 
 if stat -c %Y /dev/null &>/dev/null; then
   _stat_mtime() { stat -c %Y "$1" 2>/dev/null || echo 0; }
@@ -35,10 +37,11 @@ else
   CYAN=""; WHITE=""; NC=""
 fi
 
-log()    { printf "  ${BOLD}${GREEN}✓${NC} %s\n" "$*"; }
-warn()   { printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
-error()  { printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
-info()   { printf "  ${CYAN}%s${NC}\n" "$*"; }
+_ts()    { [[ "$VERBOSE" == "true" ]] && printf "[%s] " "$(date '+%H:%M:%S')" || true; }
+log()    { _ts; printf "  ${BOLD}${GREEN}✓${NC} %s\n" "$*"; }
+warn()   { _ts; printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
+error()  { _ts; printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
+info()   { _ts; printf "  ${CYAN}%s${NC}\n" "$*"; }
 dim()    { printf "${DIM}%s${NC}\n" "$*"; }
 die()    { error "$1"; exit 1; }
 

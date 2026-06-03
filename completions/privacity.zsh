@@ -25,6 +25,8 @@ _privacity() {
 
   local opts=(
     {-c,--country}'[Filter servers by country]:country:''
+    '--log-file=[Write output to log file]:file:_files'
+    '--verbose[Show timestamps and detailed output]'
   )
 
   _arguments \

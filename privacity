@@ -11,16 +11,21 @@
 # the whole connection lifecycle.
 #
 #   Commands:
-#     privacity           Interactive guided mode (default)
-#     privacity daemon    Connect in background – no terminal needed
+#     privacity             Interactive guided mode (default)
+#     privacity daemon      Connect in background – no terminal needed
 #     privacity daemon --persist   Install systemd user service
 #     privacity daemon --unpersist Remove systemd user service
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
-#     privacity status    Show connection details and live speed
-#     privacity speedtest Measure download & upload speed via Cloudflare
-#     privacity update    Pull latest version from git and reinstall
-#     privacity help      This message
+#     privacity status      Show connection details and live speed
+#     privacity speedtest   Measure download & upload speed via Cloudflare
+#     privacity update      Pull latest version from git and reinstall
+#     privacity help        This message
+#
+#   Options:
+#     -c, --country <name>   Filter servers by country
+#     --log-file <path>      Write output to log file
+#     --verbose              Show timestamps and detailed output
 #
 # Install:
 #   sudo make install
@@ -75,7 +80,9 @@ cmd_help() {
   printf "    privacity ${DIM}[options] [command]${NC}\n"
   printf "\n"
   printf "  ${BOLD}OPTIONS${NC}\n"
-  printf "    ${GREEN}-c, --country${NC}  Filter servers by country (name or code)\n"
+  printf "    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)\n"
+  printf "    ${GREEN}--log-file <path>${NC}  Write output to log file\n"
+  printf "    ${GREEN}--verbose${NC}          Show timestamps and detailed output\n"
   printf "\n"
   printf "  ${BOLD}COMMANDS${NC}\n"
   printf "    ${GREEN}privacity${NC}        Interactive guided mode (default)\n"
@@ -164,13 +171,22 @@ main() {
 
   local country="${CONFIG_COUNTRY:-}"
   local default_mode="${CONFIG_MODE:-}"
+  # shellcheck disable=SC2034
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
+      --log-file) LOG_FILE="$2"; shift 2 ;;
+      --verbose) VERBOSE=true; shift ;;
       --) shift; break ;;
       *) break ;;
     esac
   done
+
+  if [[ -n "$LOG_FILE" ]]; then
+    mkdir -p "$(dirname "$LOG_FILE")"
+    exec > >(tee -a "$LOG_FILE") 2>&1
+    printf "\n[%s] === privacity session started ===\n" "$(date '+%Y-%m-%d %H:%M:%S')"
+  fi
 
   local cmd="${1:-${default_mode}}"
 
