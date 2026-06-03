@@ -25,6 +25,7 @@
 #   Options:
 #     -c, --country <name>   Filter servers by country
 #     --log-file <path>      Write output to log file
+#     --profile <name>       Use isolated profile (config + data)
 #     --verbose              Show timestamps and detailed output
 #
 # Install:
@@ -82,6 +83,7 @@ cmd_help() {
   printf "  ${BOLD}OPTIONS${NC}\n"
   printf "    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)\n"
   printf "    ${GREEN}--log-file <path>${NC}  Write output to log file\n"
+  printf "    ${GREEN}--profile <name>${NC}   Use isolated profile (config + data)\n"
   printf "    ${GREEN}--verbose${NC}          Show timestamps and detailed output\n"
   printf "\n"
   printf "  ${BOLD}COMMANDS${NC}\n"
@@ -176,6 +178,7 @@ main() {
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
       --log-file) LOG_FILE="$2"; shift 2 ;;
+      --profile) use_profile "$2"; shift 2 ;;
       --verbose) VERBOSE=true; shift ;;
       --) shift; break ;;
       *) break ;;

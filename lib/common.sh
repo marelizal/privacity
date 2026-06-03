@@ -8,7 +8,9 @@ set -euo pipefail
 VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.0.0")"
 readonly VERSION
 
-DIR="${XDG_DATA_HOME:-$HOME/.local/share}/privacity"
+PROFILE=""
+DIR_BASE="${XDG_DATA_HOME:-$HOME/.local/share}/privacity"
+DIR="$DIR_BASE"
 CSV="$DIR/servers.csv"
 OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
@@ -107,6 +109,17 @@ notify() {
   command -v notify-send &>/dev/null || return 0
   local urgency="${2:-normal}"
   notify-send -a privacity -u "$urgency" "Privacity" "$1" 2>/dev/null || true
+}
+
+use_profile() {
+  PROFILE="$1"
+  DIR="${DIR_BASE}/${PROFILE}"
+  CSV="$DIR/servers.csv"
+  OVPN_CONFIG="$DIR/active.ovpn"
+  PID_FILE="$DIR/privacity.pid"
+  LAST_HOST="$DIR/last_host"
+  CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/${PROFILE}.config"
+  mkdir -p "$DIR"
 }
 
 load_config() {
