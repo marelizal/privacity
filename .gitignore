@@ -11,6 +11,9 @@ active.ovpn
 privacity.pid
 last_host
 
+# opencode (editor config — developer-specific)
+.opencode/
+
 # Development
 __pycache__
 *.pyc
