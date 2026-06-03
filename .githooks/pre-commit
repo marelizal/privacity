@@ -2,17 +2,20 @@
 set -euo pipefail
 
 echo "  → shellcheck..."
-shellcheck -s bash privacity lib/*.sh 2>&1 | grep -E "SC[0-9]* \((error|warning)\)" && {
-  echo "  ✗ shellcheck: warnings found, aborting commit"
+if shellcheck -S warning -s bash privacity lib/*.sh 2>/dev/null; then
+  echo "  ✓ shellcheck clean"
+else
+  echo "  ✗ shellcheck found warnings — aborting"
+  echo "    run 'shellcheck privacity lib/*.sh' to see details"
   exit 1
-} || echo "  ✓ shellcheck clean"
+fi
 
 echo "  → bats tests..."
 if command -v bats &>/dev/null; then
   if bats tests/*.bats >/dev/null 2>&1; then
     echo "  ✓ all tests passed"
   else
-    echo "  ✗ tests failed, aborting commit"
+    echo "  ✗ tests failed — aborting"
     exit 1
   fi
 else

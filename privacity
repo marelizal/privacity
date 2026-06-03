@@ -34,6 +34,7 @@ if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
 else
   LIB_DIR="/usr/local/lib/privacity"
 fi
+# shellcheck disable=SC1090
 for _privacity_lib in common net speed csv ovpn; do
   source "$LIB_DIR/$_privacity_lib.sh"
 done
