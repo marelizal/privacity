@@ -121,7 +121,7 @@ main()
        └─ ...
 ```
 
-See [FLOW.md](../FLOW.md) for a visual diagram.
+See [flow.md](flow.md) for a visual diagram.
 
 ---
 
@@ -240,4 +240,4 @@ main()
        └─ ...
 ```
 
-Ver [FLOW.md](../FLOW.md) para un diagrama visual.
+Ver [flow.md](flow.md) para un diagrama visual.
