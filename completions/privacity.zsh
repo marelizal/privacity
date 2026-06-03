@@ -14,6 +14,7 @@ _privacity() {
 
   local subcommands=(
     "daemon:Connect in background (no terminal)"
+    "list:Show top servers and available countries"
     "disconnect:Tear down the current VPN"
     "reconnect:Pick a new server and reconnect"
     "status:Show connection info and live speed"
@@ -22,7 +23,12 @@ _privacity() {
     "help:Show help"
   )
 
+  local opts=(
+    {-c,--country}'[Filter servers by country]:country:''
+  )
+
   _arguments \
+    "${opts[@]}" \
     '1: :->command' \
     '*:: :->args'
 
@@ -32,7 +38,7 @@ _privacity() {
       ;;
     args)
       case "$line[1]" in
-        help)
+        help|list)
           _describe -t commands 'privacity subcommands' subcommands
           ;;
       esac

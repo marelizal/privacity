@@ -20,6 +20,7 @@ fetch_servers() {
 
 parse_servers() {
   local file="$1"
+  local country_filter="${2:-}"
   if [[ ! -f "$file" ]]; then
     warn "Server list not found."
     return
@@ -29,9 +30,11 @@ parse_servers() {
     return
   fi
 
+  COUNTRY_FILTER="$country_filter" \
   tail -n +3 "$file" | head -n 50 | tr -d '\r' |
   python3 -c "
-import csv, sys
+import csv, os, sys
+country_filter = os.environ.get('COUNTRY_FILTER', '').strip().lower()
 reader = csv.reader(sys.stdin)
 rows = []
 for row in reader:
@@ -45,12 +48,35 @@ for row in reader:
         continue
     score = int(score_s)
     b64 = row[14].strip()
-    if hostname and country_short and b64:
-        rows.append((score, hostname, country_long, country_short, b64))
+    if not (hostname and country_short and b64):
+        continue
+    if country_filter and country_filter not in country_long.lower() and country_filter not in country_short.lower():
+        continue
+    rows.append((score, hostname, country_long, country_short, b64))
 rows.sort(key=lambda r: -r[0])
 for score, hostname, country_long, country_short, b64 in rows:
     print(f'{hostname}|{country_long}|{country_short}|{score}|{b64}')
 " 2>/dev/null
+}
+
+list_countries() {
+  local file="$1"
+  [[ -f "$file" ]] || return
+  [[ $(wc -l < "$file") -ge 3 ]] || return
+  tail -n +3 "$file" | tr -d '\r' |
+  python3 -c "
+import csv, sys
+seen = set()
+reader = csv.reader(sys.stdin)
+for row in reader:
+    if len(row) < 15:
+        continue
+    long_name = row[5].strip()
+    short_code = row[6].strip()
+    if long_name and short_code and short_code not in seen:
+        seen.add(short_code)
+        print(f'{long_name} ({short_code})')
+" 2>/dev/null | sort -u
 }
 
 _cache_fresh() {

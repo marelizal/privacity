@@ -70,17 +70,27 @@ cmd_update() {
 cmd_help() {
   printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n"
   printf "  ${BOLD}USAGE${NC}\n"
-  printf "    privacity ${DIM}[command]${NC}\n"
+  printf "    privacity ${DIM}[options] [command]${NC}\n"
+  printf "\n"
+  printf "  ${BOLD}OPTIONS${NC}\n"
+  printf "    ${GREEN}-c, --country${NC}  Filter servers by country (name or code)\n"
   printf "\n"
   printf "  ${BOLD}COMMANDS${NC}\n"
   printf "    ${GREEN}privacity${NC}        Interactive guided mode (default)\n"
   printf "    ${GREEN}privacity daemon${NC}  Connect in background – no terminal needed\n"
+  printf "    ${GREEN}privacity list${NC}    Show top servers and available countries\n"
   printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
   printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
   printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
   printf "    ${GREEN}privacity speedtest${NC}   Measure download speed via Cloudflare\n"
   printf "    ${GREEN}privacity update${NC}      Pull latest version and reinstall\n"
   printf "    ${GREEN}privacity help${NC}        Show this message\n"
+  printf "\n"
+  printf "  ${BOLD}EXAMPLES${NC}\n"
+  printf "    privacity                           Interactive mode\n"
+  printf "    ${DIM}privacity -c Japan daemon${NC}         Connect to Japan\n"
+  printf "    ${DIM}privacity --country US daemon${NC}     Connect to United States\n"
+  printf "    ${DIM}privacity -c Korea list${NC}           List Korean servers\n"
   printf "\n"
   printf "  ${BOLD}INSTALL${NC}\n"
   printf "    sudo make install\n"
@@ -98,6 +108,45 @@ cmd_speedtest() {
   printf "\n"
 }
 
+# ──────── List command ──────────────────────────────────────────────────────
+
+cmd_list() {
+  local country="${1:-}"
+
+  if ! _cache_fresh "$CSV"; then
+    fetch_servers
+  else
+    log "Using cached server list..."
+  fi
+
+  mapfile -t servers < <(parse_servers "$CSV" "$country")
+  ((${#servers[@]})) || die "No servers found${country:+ for $country}."
+
+  printf "\n  ${BOLD}${WHITE}Top servers${NC}"
+  [[ -n "$country" ]] && printf " ${DIM}($country)${NC}"
+  printf "\n\n"
+  printf "  ${DIM}%-30s  %-30s  %10s${NC}\n" "Country" "Hostname" "Score"
+  printf "  ${DIM}%s${NC}\n" "  ---------------------------------------------------"
+
+  for ((i=0; i<10 && i<${#servers[@]}; i++)); do
+    local h c s
+    h=$(echo "${servers[$i]}" | cut -d'|' -f1)
+    c=$(echo "${servers[$i]}" | cut -d'|' -f2)
+    s=$(echo "${servers[$i]}" | cut -d'|' -f4)
+    printf "  %-30s  %-30s  %'10d\n" "$c" "$h" "$s"
+  done
+
+  if [[ -z "$country" ]]; then
+    printf "\n"
+    log "Available countries:"
+    local countries
+    countries=$(list_countries "$CSV" 2>/dev/null)
+    echo "$countries" | tr '\n' ' ' | fold -s -w 70 | sed 's/^/  /'
+  fi
+
+  printf "\n"
+}
+
 # ──────── Main dispatch ─────────────────────────────────────────────────────
 
 main() {
@@ -105,8 +154,16 @@ main() {
 
   check_deps
 
+  local country=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -c|--country) country="$2"; shift 2 ;;
+      --) shift; break ;;
+      *) break ;;
+    esac
+  done
+
   local cmd="${1:-}"
-  shift 2>/dev/null || true
 
   case "$cmd" in
     daemon|d)
@@ -115,8 +172,8 @@ main() {
       else
         log "Using cached server list..."
       fi
-      mapfile -t servers < <(parse_servers "$CSV")
-      ((${#servers[@]})) || die "No servers found."
+      mapfile -t servers < <(parse_servers "$CSV" "$country")
+      ((${#servers[@]})) || die "No servers found${country:+ for $country}."
       log "Analysing servers by score..."
       connect_daemon "${servers[0]}"
       ;;
@@ -126,11 +183,15 @@ main() {
       ;;
 
     reconnect|re)
-      cmd_reconnect "daemon"
+      cmd_reconnect "daemon" "$country"
       ;;
 
     status|st)
       cmd_status
+      ;;
+
+    list|ls)
+      cmd_list "$country"
       ;;
 
     update|up)
@@ -155,7 +216,7 @@ main() {
           log "Using cached server list..."
         fi
 
-        mapfile -t servers < <(parse_servers "$CSV")
+        mapfile -t servers < <(parse_servers "$CSV" "$country")
         ((${#servers[@]})) || die "No valid servers found."
         log "Analysing servers by score..."
 

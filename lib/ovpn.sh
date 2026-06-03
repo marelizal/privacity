@@ -240,12 +240,13 @@ cmd_status() {
 
 cmd_reconnect() {
   local mode="${1:-daemon}"
+  local country="${2:-}"
   cmd_disconnect 2>/dev/null || true
   sleep 1
   fetch_servers
-  mapfile -t servers < <(parse_servers "$CSV")
-  log "Analysing servers by score..."
-  ((${#servers[@]})) || die "No servers available."
+  mapfile -t servers < <(parse_servers "$CSV" "$country")
+  log "Analysing servers by score...${country:+ ($country)}"
+  ((${#servers[@]})) || die "No servers available${country:+ for $country}."
 
   local best="${servers[0]}"
   local h c
