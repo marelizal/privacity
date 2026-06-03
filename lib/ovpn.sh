@@ -50,6 +50,9 @@ connect_interactive() {
   country_long=$(echo "$entry" | cut -d'|' -f2)
   base64_data=$(echo "$entry" | cut -d'|' -f5)
 
+  header
+  log "Realizando conexión..."
+
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
@@ -66,13 +69,13 @@ connect_interactive() {
     if ! kill -0 "$ovpn_pid" 2>/dev/null; then
       break
     fi
-    printf "\r  ${spin[$i]}   "
+    printf "\r  ${spin[$i]} Conectando..."
     i=$(( (i + 1) % 4 ))
     sleep 1
   done
 
   if ! $connected; then
-    printf "\r  ${RED}x${NC}\n"
+    printf "\r  ${RED}x${NC} Conexión fallida\n"
     notify "Connection failed" critical
     error "Connection timed out or failed."
     _sudo kill "$ovpn_pid" 2>/dev/null || true
@@ -80,7 +83,7 @@ connect_interactive() {
     return 1
   fi
 
-  printf "\r     \n"
+  printf "\r  ${GREEN}✓${NC} Conectado a ${hostname} (${country_long})\n"
   notify "Connected to $hostname ($country_long)"
 
   check_internet
