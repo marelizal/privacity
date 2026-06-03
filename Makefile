@@ -8,7 +8,7 @@ LIBS       = lib/common.sh lib/net.sh lib/speed.sh lib/csv.sh lib/ovpn.sh
 BASH_COMP  = completions/privacity.bash
 ZSH_COMP   = completions/privacity.zsh
 
-.PHONY: help install uninstall completions uninstall-completions
+.PHONY: help install uninstall completions uninstall-completions hooks
 
 help:
 	@echo "Targets:"
@@ -16,6 +16,7 @@ help:
 	@echo "  make uninstall           Remove privacity and lib modules"
 	@echo "  make completions         Install bash and zsh completions"
 	@echo "  make uninstall-completions  Remove completion files"
+	@echo "  make hooks               Enable git pre-commit hook (shellcheck + tests)"
 
 install: $(SCRIPT) $(LIBS)
 	install -d "$(DESTDIR)$(BINDIR)"
@@ -41,3 +42,7 @@ uninstall-completions:
 	rm -f "$(DESTDIR)$(COMPDIR)/$(SCRIPT)"
 	rm -f "$(DESTDIR)$(ZSH_COMPDIR)/_$(SCRIPT)"
 	@echo "Completions removed"
+
+hooks:
+	git config core.hooksPath .githooks
+	@echo "Git hooks enabled (pre-commit: shellcheck + bats)"
