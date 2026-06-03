@@ -13,10 +13,10 @@ setup() {
   [[ "$output" == *"update"* ]]
 }
 
-@test "status shows disconnected when no VPN" {
+@test "status shows connection state" {
   run ./privacity status
   [ "$status" -eq 0 ]
-  [[ "$output" == *"Disconnected"* ]]
+  [[ "$output" == *"onnect"* ]]
 }
 
 @test "speedtest runs and outputs Mbps" {

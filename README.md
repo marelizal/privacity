@@ -5,6 +5,8 @@
 
 CLI tool that fetches the fastest public [VPN Gate](https://www.vpngate.net/) servers and connects via OpenVPN — interactive or daemon mode.
 
+![demo](privacity.png)
+
 ## Features
 
 - 🔒 Sanitizes OpenVPN configs (strips `script-security`, `up`, `down`, `persist-key`, etc.)
