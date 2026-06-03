@@ -73,6 +73,7 @@ connect_interactive() {
 
   if ! $connected; then
     printf "\r  ${RED}x${NC}\n"
+    notify "Connection failed" critical
     error "Connection timed out or failed."
     sudo kill "$ovpn_pid" 2>/dev/null || true
     wait "$ovpn_pid" 2>/dev/null || true
@@ -80,6 +81,7 @@ connect_interactive() {
   fi
 
   printf "\r     \n"
+  notify "Connected to $hostname ($country_long)"
 
   check_internet
 
@@ -165,6 +167,7 @@ connect_daemon() {
   done
 
   if $connected; then
+    notify "Connected to $hostname ($country_long)"
     log "Connected to ${hostname} (${country_long})"
     check_internet
     printf "\n"
@@ -180,6 +183,7 @@ cmd_disconnect() {
   pid=$(read_pid)
 
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    notify "Disconnected"
     log "Disconnecting (PID $pid)..."
     sudo kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true

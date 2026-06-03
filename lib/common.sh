@@ -103,6 +103,12 @@ check_deps() {
   fi
 }
 
+notify() {
+  command -v notify-send &>/dev/null || return 0
+  local urgency="${2:-normal}"
+  notify-send -a privacity -u "$urgency" "Privacity" "$1" 2>/dev/null || true
+}
+
 load_config() {
   [[ -f "$CONFIG_FILE" ]] || return 0
   local key val
