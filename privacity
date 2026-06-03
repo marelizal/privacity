@@ -57,7 +57,7 @@ cmd_update() {
   tmpdir=$(mktemp -d) || die "Failed to create temp directory."
   trap 'rm -rf "${tmpdir:-}"' RETURN
 
-  _do_clone() { git clone --depth=1 -q "$REPO_URL" "$tmpdir"; }
+  _do_clone() { git clone --depth=1 -q "$REPO_URL" "$tmpdir" >/dev/null 2>&1; }
   run_with_spinner \
     "Downloading latest version..." \
     _do_clone \
@@ -67,10 +67,8 @@ cmd_update() {
   cd "$tmpdir"
 
   _do_install() { _sudo make install && _sudo make completions; }
-  run_with_spinner \
-    "Installing..." \
-    _do_install \
-    >/dev/null 2>&1 || true
+  run_with_spinner "Installing..." _do_install >/dev/null 2>&1 \
+    || warn "Install failed. Run ${BOLD}sudo privacity update${NC} manually."
   unset -f _do_install 2>/dev/null || true
 
   local new_version

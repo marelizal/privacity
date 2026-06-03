@@ -83,6 +83,8 @@ run_with_spinner() {
 _sudo() {
   if [[ $EUID -eq 0 ]]; then
     "$@"
+  elif sudo -n true 2>/dev/null; then
+    sudo -n "$@"
   else
     sudo "$@"
   fi
