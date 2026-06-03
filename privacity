@@ -16,494 +16,30 @@
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status    Show connection details and live speed
+#     privacity speedtest Measure download speed via Cloudflare
 #     privacity update    Pull latest version from git and reinstall
 #     privacity help      This message
 #
 # Install:
 #   sudo make install
 #   sudo make completions
-
-readonly VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.0.0")"
-REPO_URL="https://github.com/marelizal/privacity.git"
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-# ──────── Paths & defaults ──────────────────────────────────────────────────
-# I keep everything under XDG_DATA_HOME so it follows the Freedesktop spec.
-DIR="${XDG_DATA_HOME:-$HOME/.local/share}/privacity"
-CSV="$DIR/servers.csv"
-OVPN_CONFIG="$DIR/active.ovpn"
-PID_FILE="$DIR/privacity.pid"
-LAST_HOST="$DIR/last_host"
+REPO_URL="https://github.com/marelizal/privacity.git"
 
-# ──────── Colours (only when stdout is a terminal) ──────────────────────────
-# I use tput instead of hard-coded escape sequences so the script works on
-# any terminal that supports terminfo.
-if [[ -t 1 ]]; then
-  BOLD=$(tput bold)
-  DIM=$(tput dim)
-  RED=$(tput setaf 1)
-  GREEN=$(tput setaf 2)
-  YELLOW=$(tput setaf 3)
-  BLUE=$(tput setaf 4)
-  CYAN=$(tput setaf 6)
-  WHITE=$(tput setaf 7)
-  NC=$(tput sgr0)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+  LIB_DIR="$SCRIPT_DIR/lib"
 else
-  BOLD=""; DIM=""; RED=""; GREEN=""; YELLOW=""
-  BLUE=""; CYAN=""; WHITE=""; NC=""
+  LIB_DIR="/usr/local/lib/privacity"
 fi
-
-# ──────── Logging helpers ───────────────────────────────────────────────────
-# I prefix every line with a clear symbol so the user can scan the output and
-# immediately tell what kind of message they are looking at.
-log()    { printf "  ${BOLD}${GREEN}✓${NC} %s\n" "$*"; }
-warn()   { printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
-error()  { printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
-info()   { printf "  ${CYAN}%s${NC}\n" "$*"; }
-dim()    { printf "${DIM}%s${NC}\n" "$*"; }
-die()    { error "$1"; exit 1; }
-
-header() {
-  clear
-  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n\n"
-}
-
-# ──────── Spinner helper ─────────────────────────────────────────────────────
-# I show an animated spinner while a command runs in the background, then
-# replace it with a green checkmark on success or a red cross on failure.
-
-run_with_spinner() {
-  local msg="$1"
-  local cmd="$2"
-
-  eval "$cmd" &
-  local pid=$!
-
-  local spin=('-' '\' '|' '/')
-  local i=0
-  while kill -0 "$pid" 2>/dev/null; do
-    printf "\r  ${spin[$i]} %s" "$msg"
-    i=$(( (i + 1) % 4 ))
-    sleep 0.1
-  done
-
-  wait "$pid"
-  local rc=$?
-
-  if [[ $rc -eq 0 ]]; then
-    printf "\r  ${GREEN}✓${NC} %s\n" "$msg"
-  else
-    printf "\r  ${RED}x${NC} %s\n" "$msg"
-  fi
-
-  return $rc
-}
-
-# ──────── Server list: fetch & parse ────────────────────────────────────────
-# VPN Gate exposes a CSV endpoint at /api/iphone/.  The first two lines are
-# metadata, then every subsequent line is a server.  I grab the top 50 by
-# default and sort them by score descending – the higher the score, the better
-# the server is supposed to be.
-
-fetch_servers() {
-  mkdir -p "$DIR"
-  run_with_spinner \
-    "Downloading server list from VPN Gate..." \
-    "wget -q -O \"$CSV\" --timeout=15 \"http://www.vpngate.net/api/iphone/\"" \
-    || die "Failed to download server list. Check your connection."
-}
-
-parse_servers() {
-  tail -n +3 "$CSV" | head -n 50 | tr -d '\r' |
-  awk -F, '
-    $2 != "" && $7 != "" && $15 != "" {
-      score = $3 + 0
-      printf "%s|%s|%s|%s|%s\n", $1, $6, $7, score, $15
-    }' |
-  sort -t'|' -k4 -rn
-}
-
-# ──────── Network helpers ───────────────────────────────────────────────────
-# I need a few lightweight checks to report connection quality back to the
-# user – nothing fancy, just an external IP lookup and a quick ping.
-
-get_external_ip() {
-  curl -s --max-time 5 https://ifconfig.me 2>/dev/null || echo "-"
-}
-
-get_ping() {
-  ping -c 1 -W 3 "${1:-8.8.8.8}" 2>/dev/null |
-    sed -n 's/.*time=\([0-9.]*\) ms/\1/p' || echo "-"
-}
-
-# ──────── Top-server display ────────────────────────────────────────────────
-# I show the best three candidates so the user knows what they are getting.
-# The first entry gets an eye-catching [*] marker.
-
-show_top() {
-  local servers=("$@")
-  printf "\n"
-  for ((i=0; i<3 && i<${#servers[@]}; i++)); do
-    local hostname country_long score
-    hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
-    country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
-    score=$(echo "${servers[$i]}" | cut -d'|' -f4)
-
-    local marker
-    ((i==0)) && marker="${GREEN}${BOLD}✓${NC} " || marker="  "
-
-    printf "  ${marker}%-20s  %-30s  ${YELLOW}%'10d${NC}\n" \
-      "$country_long" "$hostname" "$score"
-  done
-  printf "\n"
-}
-
-# ──────── OpenVPN config generation ─────────────────────────────────────────
-# I decode the Base64 config that VPN Gate provides, write it to a local file,
-# and inject the data-ciphers line that OpenVPN ≥2.7 needs to avoid cipher
-# negotiation errors with older servers.
-
-write_config() {
-  local base64_data="$1"
-  echo "$base64_data" | base64 -d > "$OVPN_CONFIG"
-  if ! grep -q "data-ciphers" "$OVPN_CONFIG"; then
-    echo "" >> "$OVPN_CONFIG"
-    echo "data-ciphers DEFAULT:AES-128-CBC" >> "$OVPN_CONFIG"
-  fi
-}
-
-# ──────── Daemon helpers ────────────────────────────────────────────────────
-# I save the PID of the background OpenVPN process so disconnect / status /
-# reconnect can find it later without having to grep through the process table.
-
-save_pid() {
-  echo "$1" > "$PID_FILE"
-}
-
-read_pid() {
-  if [[ -f "$PID_FILE" ]]; then
-    cat "$PID_FILE"
-  fi
-}
-
-save_host() {
-  echo "$1|$2" > "$LAST_HOST"
-}
-
-read_host() {
-  if [[ -f "$LAST_HOST" ]]; then
-    cat "$LAST_HOST"
-  fi
-}
-
-# ──────── Dependency check ──────────────────────────────────────────────────
-# If a required program is missing I ask the user whether to install it
-# before giving up.  sudo is special – without it there is no way to run
-# apt, so I bail out immediately.
-
-check_deps() {
-  local missing=0
-  for dep in openvpn wget curl base64; do
-    if ! command -v "$dep" &>/dev/null; then
-      local pkg
-      case "$dep" in
-        openvpn) pkg="openvpn" ;;
-        wget)    pkg="wget" ;;
-        curl)    pkg="curl" ;;
-        base64)  pkg="coreutils" ;;
-      esac
-      warn "$dep is not installed."
-      printf "  ${YELLOW}${BOLD}[?]${NC} Install ${pkg}? ${DIM}[Y/n]${NC} "
-      read -r yn
-      if [[ "${yn,,}" != "n" ]]; then
-        log "Installing ${pkg}..."
-        sudo apt install -y "$pkg" || die "Failed to install ${pkg}."
-      else
-        die "$dep is required to run privacity."
-      fi
-      missing=1
-    fi
-  done
-  if ! command -v sudo &>/dev/null; then
-    die "sudo not found. Install it manually."
-  fi
-}
-
-# ──────── Connection (interactive) ─────────────────────────────────────────
-# This is the main guided flow: find the best server, show it, ask for
-# confirmation, connect, and then enter a live-monitoring loop that displays
-# download / upload speed until the user presses Q.
-
-connect_interactive() {
-  local entry="$1"
-  local hostname country_long score base64_data
-  hostname=$(echo "$entry" | cut -d'|' -f1)
-  country_long=$(echo "$entry" | cut -d'|' -f2)
-  score=$(echo "$entry" | cut -d'|' -f4)
-  base64_data=$(echo "$entry" | cut -d'|' -f5)
-
-  write_config "$base64_data"
-  save_host "$hostname" "$country_long"
-
-  sudo openvpn --config "$OVPN_CONFIG" --verb 0 &>/dev/null &
-  local ovpn_pid=$!
-
-  # I show a spinner while waiting up to twenty seconds for the tun0
-  # interface, which is OpenVPN's way of signalling the tunnel is up.
-  local spin=('-' '\' '|' '/')
-  local i=0 connected=false
-  for attempt in $(seq 1 20); do
-    if ip link show tun0 &>/dev/null 2>&1; then
-      connected=true
-      break
-    fi
-    if ! kill -0 "$ovpn_pid" 2>/dev/null; then
-      break
-    fi
-    printf "\r  ${spin[$i]}   "
-    i=$(( (i + 1) % 4 ))
-    sleep 1
-  done
-
-  if ! $connected; then
-    printf "\r  ${RED}x${NC}\n"
-    error "Connection timed out or failed."
-    sudo kill "$ovpn_pid" 2>/dev/null || true
-    wait "$ovpn_pid" 2>/dev/null || true
-    return 1
-  fi
-
-  printf "\r     \n"
-
-  local speed_mbps
-  speed_mbps=$(measure_speed)
-
-  header
-
-  local ext_ip ping_ms rx1 rx2 tx1 tx2
-  ext_ip=$(get_external_ip)
-  ping_ms=$(get_ping)
-
-  # I read the initial byte counters so I can compute deltas for the speed
-  # display.
-  rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-  tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "External IP" "$ext_ip"
-  printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
-  printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
-  printf "  ${DIM}↓ 0 KB/s  |  ↑ 0 KB/s${NC}\n"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Download" "${speed_mbps} Mbps"
-  printf "  ${GREEN}✓${NC} VPN active. ${BOLD}Q${NC} disconnect  ${BOLD}S${NC} switch\n"
-
-  # Live speed loop — I sample the byte counters every two seconds and compute
-  # the transfer rate.
-  while true; do
-    rx2=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx2=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-    local rx_speed=$(( (rx2 - rx1) / 1024 ))
-    local tx_speed=$(( (tx2 - tx1) / 1024 ))
-    rx1=$rx2
-    tx1=$tx2
-
-    printf "\033[3A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[3B\r"
-
-    read -r -s -t 2 -n1 key || true
-    if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
-      printf "\n\n"
-      log "Disconnecting..."
-      sudo kill "$ovpn_pid" 2>/dev/null || true
-      wait "$ovpn_pid" 2>/dev/null || true
-      log "Disconnected"
-      break
-    fi
-
-    if [[ -n "${key:-}" && "${key,,}" == "s" ]]; then
-      printf "\n\n"
-      log "Switching server..."
-      sudo kill "$ovpn_pid" 2>/dev/null || true
-      wait "$ovpn_pid" 2>/dev/null || true
-      log "Disconnected"
-      return 1
-    fi
-
-    if ! kill -0 "$ovpn_pid" 2>/dev/null; then
-      printf "\n\n"
-      warn "VPN connection was lost."
-      return 1
-    fi
-  done
-}
-
-# ──────── Daemon (background) mode ─────────────────────────────────────────
-# The daemon subcommand is for users who do not want to keep a terminal open.
-# I spin up OpenVPN in the background with --daemon, store the PID, and exit.
-
-connect_daemon() {
-  local entry="$1"
-  local hostname country_long score base64_data
-  hostname=$(echo "$entry" | cut -d'|' -f1)
-  country_long=$(echo "$entry" | cut -d'|' -f2)
-  score=$(echo "$entry" | cut -d'|' -f4)
-  base64_data=$(echo "$entry" | cut -d'|' -f5)
-
-  write_config "$base64_data"
-  save_host "$hostname" "$country_long"
-
-  log "Starting OpenVPN in daemon mode..."
-  sudo openvpn --config "$OVPN_CONFIG" \
-    --daemon \
-    --log "$DIR/openvpn.log" \
-    --writepid "$PID_FILE"
-
-  # I give the daemon a few seconds to negotiate the tunnel.
-  sleep 3
-
-  if ip link show tun0 &>/dev/null 2>&1; then
-    log "Connected to ${hostname} (${country_long})"
-    printf "\n"
-    dim "  Run ${BOLD}privacity status${NC}${DIM} to check the connection${NC}"
-    dim "  Run ${BOLD}privacity disconnect${NC}${DIM} to tear it down${NC}"
-  else
-    warn "Daemon started but no tunnel detected – check $DIR/openvpn.log"
-  fi
-}
-
-# ──────── Disconnect ────────────────────────────────────────────────────────
-# I kill the saved PID and clean up the tunnel.  If a PID file is missing I
-# fall back to killing openvpn by config path.
-
-cmd_disconnect() {
-  local pid
-  pid=$(read_pid)
-
-  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-    log "Disconnecting (PID $pid)..."
-    sudo kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
-  else
-    # Fallback: kill any openvpn that is using our config file.
-    log "No saved PID found – looking for active OpenVPN processes..."
-    local pids
-    pids=$(pgrep -f "openvpn.*$OVPN_CONFIG" 2>/dev/null || true)
-    if [[ -n "$pids" ]]; then
-      sudo kill $pids 2>/dev/null || true
-    else
-      warn "No active VPN connection found."
-      return 1
-    fi
-  fi
-
-  rm -f "$PID_FILE" "$LAST_HOST"
-  log "Disconnected"
-}
-
-# ──────── Status ────────────────────────────────────────────────────────────
-# I report back everything the user needs to know: whether the tunnel is up,
-# the external IP, the ping time, the current transfer rates, and which server
-# is being used.
-
-cmd_status() {
-  local hostname country_long
-  if [[ -f "$LAST_HOST" ]]; then
-    IFS='|' read -r hostname country_long < "$LAST_HOST"
-  fi
-
-  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}status${NC}\n"
-
-  if ip link show tun0 &>/dev/null 2>&1; then
-    printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Server" "${hostname:---}"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Country" "${country_long:---}"
-
-    local ext_ip ping_ms
-    ext_ip=$(get_external_ip)
-    ping_ms=$(get_ping)
-    printf "  ${BOLD}%-14s${NC} %s\n" "External IP" "$ext_ip"
-    printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
-
-    # One-shot speed (two-second sample).
-    local rx1 rx2 tx1 tx2
-    rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-    sleep 2
-    rx2=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx2=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-    local rx_speed=$(( (rx2 - rx1) / 2048 ))
-    local tx_speed=$(( (tx2 - tx1) / 2048 ))
-
-    printf "  ${BOLD}%-14s${NC} ↓ %d KB/s  ↑ %d KB/s\n" "Speed" "$rx_speed" "$tx_speed"
-  else
-    printf "  ${BOLD}%-14s${NC} ${RED}Disconnected${NC}\n" "Status"
-  fi
-
-  printf "\n"
-}
-
-# ──────── Reconnect ─────────────────────────────────────────────────────────
-# I tear down the current connection, pick the best server from a fresh list,
-# and connect again — either interactively or in daemon mode.
-
-cmd_reconnect() {
-  local mode="${1:-daemon}"
-  cmd_disconnect 2>/dev/null || true
-  sleep 1
-  fetch_servers
-  mapfile -t servers < <(parse_servers)
-  log "Analysing servers by score..."
-  ((${#servers[@]})) || die "No servers available."
-
-  local best="${servers[0]}"
-  local h c
-  h=$(echo "$best" | cut -d'|' -f1)
-  c=$(echo "$best" | cut -d'|' -f2)
-  local s
-  s=$(echo "$best" | cut -d'|' -f4)
-
-  log "Best option found: ${h} (${c}) — score: $(printf "%'d" "$s")"
-
-  if [[ "$mode" == "daemon" ]]; then
-    connect_daemon "$best"
-  else
-    connect_interactive "$best"
-  fi
-}
-
-# ──────── Speed test ────────────────────────────────────────────────────────────────────────
-# I download a 10 MiB file from Cloudflare's edge network and compute the
-# average throughput in Mbps.  The result is written to stdout so callers can
-# capture it with $(…).
-
-measure_speed() {
-  local bytes=12500000
-  local max_time=15
-  local tmp
-  tmp=$(mktemp)
-
-  run_with_spinner \
-    "Testing download speed..." \
-    "curl -s --max-time \"$max_time\" \"https://speed.cloudflare.com/__down?bytes=$bytes\" -o /dev/null -w \"%{speed_download}\" > \"$tmp\" 2>/dev/null" >&2 \
-    || true
-
-  local speed_kbps
-  speed_kbps=$(cat "$tmp" 2>/dev/null || echo "0")
-  rm -f "$tmp"
-
-  echo "scale=1; $speed_kbps * 8 / 1000 / 1000" | bc -l 2>/dev/null || echo "?"
-}
-
-cmd_speedtest() {
-  printf "\n"
-  local speed_mbps
-  speed_mbps=$(measure_speed)
-  log "Download speed: ${BOLD}${speed_mbps} Mbps${NC}"
-  printf "\n"
-}
+for _privacity_lib in common net speed csv ovpn; do
+  source "$LIB_DIR/$_privacity_lib.sh"
+done
+unset _privacity_lib
 
 # ──────── Update ─────────────────────────────────────────────────────────────
-# I clone the latest version from the repository, reinstall, and clean up.
-# This saves the user from having to track updates manually.
 
 cmd_update() {
   command -v git &>/dev/null || die "git is required to update. Install: sudo apt install git"
@@ -513,7 +49,7 @@ cmd_update() {
   trap 'rm -rf "${tmpdir:-}"' RETURN
 
   log "Downloading latest version..."
-  if ! git clone --depth=1 "$REPO_URL" "$tmpdir" 2>/dev/null; then
+  if ! git clone --depth=1 "$REPO_URL" "$tmpdir" 2>&1; then
     die "Failed to clone repository. Check your connection."
   fi
 
@@ -523,10 +59,13 @@ cmd_update() {
   sudo make install >/dev/null 2>&1
   sudo make completions >/dev/null 2>&1 || true
 
-  log "Updated to version $(eval "$(grep '^readonly VERSION=' privacity | cut -d'"' -f2)" 2>/dev/null || echo "?")"
+  local new_version
+  new_version=$(sed -n '/^readonly VERSION=/ { s/^readonly VERSION="//; s/"$//; p }' privacity 2>/dev/null || echo "?")
+  log "Updated to version ${new_version}"
 }
 
 # ──────── Help ──────────────────────────────────────────────────────────────
+
 cmd_help() {
   printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n"
   printf "  ${BOLD}USAGE${NC}\n"
@@ -548,10 +87,17 @@ cmd_help() {
   printf "\n"
 }
 
+# ──────── Speedtest command ──────────────────────────────────────────────────
+
+cmd_speedtest() {
+  printf "\n"
+  local speed_mbps
+  speed_mbps=$(measure_speed)
+  log "Download speed: ${BOLD}${speed_mbps} Mbps${NC}"
+  printf "\n"
+}
+
 # ──────── Main dispatch ─────────────────────────────────────────────────────
-# I parse the first argument as a subcommand and dispatch to the appropriate
-# function.  If no subcommand is given I default to the interactive guided
-# flow.
 
 main() {
   trap 'printf "\n"; exit 1' INT TERM
@@ -563,13 +109,12 @@ main() {
 
   case "$cmd" in
     daemon|d)
-      # Background connect – useful for cron / scripts.
-      if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
+      if ! _cache_fresh "$CSV"; then
         fetch_servers
       else
-        log "Downloading server list from VPN Gate..."
+        log "Using cached server list..."
       fi
-      mapfile -t servers < <(parse_servers)
+      mapfile -t servers < <(parse_servers "$CSV")
       ((${#servers[@]})) || die "No servers found."
       log "Analysing servers by score..."
       connect_daemon "${servers[0]}"
@@ -600,17 +145,16 @@ main() {
       ;;
 
     *)
-      # Default: interactive guided mode.
       while true; do
         header
 
-        if [[ ! -f "$CSV" ]] || (( $(date +%s) - $(stat -c %Y "$CSV" 2>/dev/null || echo 0) > 300 )); then
+        if ! _cache_fresh "$CSV"; then
           fetch_servers
         else
-          log "Downloading server list from VPN Gate..."
+          log "Using cached server list..."
         fi
 
-        mapfile -t servers < <(parse_servers)
+        mapfile -t servers < <(parse_servers "$CSV")
         ((${#servers[@]})) || die "No valid servers found."
         log "Analysing servers by score..."
 
@@ -638,4 +182,4 @@ main() {
   esac
 }
 
-main "$@"
+return 0 2>/dev/null || main "$@"
