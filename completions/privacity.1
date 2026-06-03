@@ -1,0 +1,90 @@
+.TH PRIVACITY 1 "2026-06" "privacity" "User Commands"
+.SH NAME
+privacity \- VPN Gate auto-connector
+.SH SYNOPSIS
+.B privacity
+[\fB\-c\fR \fIcountry\fR] [\fB\-\-country\fR \fIcountry\fR]
+[\fIcommand\fR]
+.SH DESCRIPTION
+Fetches the fastest public VPN Gate servers and connects via OpenVPN
+\-\- interactive or daemon mode.  Picks the server with the highest
+score, sanitizes its OpenVPN config, and handles the full connection
+lifecycle.
+.SH OPTIONS
+.TP
+\fB\-c\fR, \fB\-\-country\fR \fIcountry\fR
+Filter servers by country name or code (e.g. "Japan", "US", "Korea").
+.SH COMMANDS
+.TP
+.B privacity
+Interactive guided mode (default).  Shows top 3 servers, asks for
+confirmation, then connects and displays live speed, IP, and ping.
+Press \fBQ\fR to disconnect, \fBS\fR to switch server.
+.TP
+.B daemon
+Connect in background.  No terminal needed after connection.
+.TP
+.B list
+Show top 10 servers and list available countries.
+.TP
+.B disconnect
+Tear down the current VPN connection.
+.TP
+.B reconnect
+Pick the best server (optionally filtered by \fB\-c\fR) and reconnect.
+.TP
+.B status
+Show current connection: server, country, external IP, ping, speed.
+.TP
+.B speedtest
+Measure download speed via Cloudflare and print result in Mbps.
+.TP
+.B update
+Pull the latest version from git and reinstall.
+.TP
+.B help
+Show the help message with all commands and options.
+.SH FILES
+.TP
+\fI~/.config/privacity/config\fR
+Configuration file.  Format: \fBKEY=VALUE\fR.
+Supported keys: \fBcountry\fR, \fBmode\fR (daemon|interactive).
+.TP
+\fI~/.local/share/privacity/servers.csv\fR
+Cached VPN Gate server list (5 minute TTL).
+.TP
+\fI~/.local/share/privacity/active.ovpn\fR
+Sanitized OpenVPN config of the active connection.
+.TP
+\fI~/.local/share/privacity/privacity.pid\fR
+PID of the background OpenVPN process.
+.TP
+\fI~/.local/share/privacity/last_host\fR
+Last connected server hostname and country.
+.TP
+\fI~/.local/share/privacity/openvpn.log\fR
+OpenVPN daemon log.
+.SH EXAMPLES
+.TP
+Connect to the best server (interactive)
+.B privacity
+.TP
+Connect to a Japanese server in background
+.B privacity \-c Japan daemon
+.TP
+List Korean servers
+.B privacity \-c Korea list
+.TP
+Check current connection
+.B privacity status
+.TP
+Reconnect to a US server
+.B privacity \-c US reconnect
+.SH DEPENDENCIES
+Runtime: openvpn, wget, curl, base64 (coreutils), sudo.
+.SH AUTHOR
+Martin <https://github.com/marelizal>
+.SH BUGS
+Report issues at https://github.com/marelizal/privacity/issues
+.SH LICENSE
+GNU General Public License v3 or later.
