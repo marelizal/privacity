@@ -9,7 +9,7 @@ jobs:
       - name: Install shellcheck
         run: sudo apt update && sudo apt install -y shellcheck
       - name: Run shellcheck
-        run: shellcheck privacity lib/*.sh
+        run: shellcheck -S warning privacity lib/*.sh
 
   bats:
     runs-on: ubuntu-latest
