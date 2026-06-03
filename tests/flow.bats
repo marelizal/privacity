@@ -66,6 +66,19 @@ setup() {
   [ "$status" -ne 0 ] || [ "$status" -eq 0 ]
 }
 
+# ──────── OpenVPN config sanitization ──────────────────────────────────────
+
+@test "write_config strips deprecated persist-key" {
+  local b64
+  b64=$(base64 < "${BATS_TEST_DIRNAME}/fixtures/malicious.ovpn" | tr -d '\n')
+  run bash -c '
+    source "'"$PWD"'/privacity" 2>/dev/null
+    write_config "'"$b64"'" 2>/dev/null
+    grep -c "persist-key" "'"$OVPN_CONFIG"'" 2>/dev/null || echo "NOT_FOUND"
+  '
+  [[ "$output" == *"NOT_FOUND"* ]]
+}
+
 @test "parse_servers rejects empty file" {
   source ./privacity 2>/dev/null || true
   local f="$XDG_DATA_HOME/servers.csv"

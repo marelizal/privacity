@@ -6,11 +6,12 @@ set -euo pipefail
 
 write_config() {
   local base64_data="$1"
+  mkdir -p "$DIR"
 
   local decoded
   decoded=$(echo "$base64_data" | base64 -d 2>/dev/null) || die "Failed to decode OpenVPN config."
 
-  decoded=$(echo "$decoded" | grep -viE '^\s*(script-security|up\b|down\b|route-up|ipchange|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|plugin)' 2>/dev/null || true)
+  decoded=$(echo "$decoded" | grep -viE '^\s*(script-security|up\b|down\b|route-up|ipchange|client-connect|client-disconnect|learn-address|auth-user-pass-verify|tls-verify|plugin|persist-key)' 2>/dev/null || true)
 
   echo "$decoded" > "$OVPN_CONFIG"
 
