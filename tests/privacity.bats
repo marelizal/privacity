@@ -123,7 +123,8 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   local vers
   vers=$(bash -c 'source "'"${BATS_TEST_DIRNAME}"'/../lib/common.sh" 2>/dev/null; echo "$VERSION"' 2>/dev/null || echo "?")
   [ "$vers" != "?" ]
-  [[ "$vers" =~ ^v?[0-9]+\.[0-9]+\.[0-9] ]]
+  # Accept semver (1.0.0) or git hash (e45b77f) — both are valid outputs
+  [[ "$vers" =~ ^v?[0-9]+\.[0-9]+\.[0-9] || "$vers" =~ ^[0-9a-f]{7,}$ ]]
 }
 
 # ──────── get_external_ip ──────────────────────────────────────────────────
