@@ -18,7 +18,7 @@ _privacity() {
     "disconnect:Tear down the current VPN"
     "reconnect:Pick a new server and reconnect"
     "status:Show connection info and live speed"
-    "speedtest:Measure download speed via Cloudflare"
+    "speedtest:Measure download and upload speed"
     "update:Pull latest version and reinstall"
     "help:Show help"
   )

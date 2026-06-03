@@ -18,7 +18,7 @@
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status    Show connection details and live speed
-#     privacity speedtest Measure download speed via Cloudflare
+#     privacity speedtest Measure download & upload speed via Cloudflare
 #     privacity update    Pull latest version from git and reinstall
 #     privacity help      This message
 #
@@ -86,7 +86,7 @@ cmd_help() {
   printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
   printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
   printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
-  printf "    ${GREEN}privacity speedtest${NC}   Measure download speed via Cloudflare\n"
+  printf "    ${GREEN}privacity speedtest${NC}   Measure download & upload speed\n"
   printf "    ${GREEN}privacity update${NC}      Pull latest version and reinstall\n"
   printf "    ${GREEN}privacity help${NC}        Show this message\n"
   printf "\n"
@@ -107,9 +107,11 @@ cmd_help() {
 
 cmd_speedtest() {
   printf "\n"
-  local speed_mbps
-  speed_mbps=$(measure_speed)
-  log "Download speed: ${BOLD}${speed_mbps} Mbps${NC}"
+  local dl ul
+  dl=$(measure_speed)
+  log "Download speed: ${BOLD}${dl} Mbps${NC}"
+  ul=$(measure_upload_speed)
+  log "Upload speed:   ${BOLD}${ul} Mbps${NC}"
   printf "\n"
 }
 
