@@ -27,6 +27,7 @@ privacity
 ```bash
 sudo make install          # installs to /usr/local/bin/
 sudo make completions      # bash/zsh completion
+make hooks                 # enable pre-commit checks (shellcheck + bats)
 ```
 
 ## Usage
@@ -79,7 +80,7 @@ See [FLOW.md](FLOW.md) for a detailed execution diagram.
 ```bash
 # Syntax & lint
 bash -n privacity lib/*.sh
-shellcheck -s bash privacity lib/*.sh
+shellcheck -S warning -s bash privacity lib/*.sh
 
 # Tests
 sudo apt install bats
@@ -88,6 +89,9 @@ bats tests/*.bats
 # Standalone tools (for debugging)
 ./lib/net.sh check
 ./lib/speed.sh
+
+# Pre-commit hook (auto-runs on git commit)
+make hooks
 ```
 
 ## License
