@@ -24,6 +24,12 @@ Press \fBQ\fR to disconnect, \fBS\fR to switch server.
 .B daemon
 Connect in background.  No terminal needed after connection.
 .TP
+.B daemon \-\-persist
+Install systemd user service so the VPN auto-connects after login.
+.TP
+.B daemon \-\-unpersist
+Remove the systemd user service.
+.TP
 .B list
 Show top 10 servers and list available countries.
 .TP

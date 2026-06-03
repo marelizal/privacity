@@ -38,6 +38,9 @@ _privacity() {
       ;;
     args)
       case "$line[1]" in
+        daemon)
+          _arguments '--persist[Install systemd user service]' '--unpersist[Remove systemd user service]'
+          ;;
         help|list)
           _describe -t commands 'privacity subcommands' subcommands
           ;;

@@ -113,6 +113,52 @@ load_config() {
   done < "$CONFIG_FILE"
 }
 
+# ──────── Systemd user service ──────────────────────────────────────────────
+
+SERVICE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+SERVICE_NAME="privacity.service"
+
+_create_user_service() {
+  local exec_path
+  exec_path="$(command -v privacity 2>/dev/null || echo "/usr/local/bin/privacity")"
+  install -d "$SERVICE_DIR"
+  cat > "$SERVICE_DIR/$SERVICE_NAME" <<-EOF
+[Unit]
+Description=Privacity VPN Gate auto-connector
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=$exec_path daemon
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+  systemctl --user daemon-reload
+}
+
+_remove_user_service() {
+  rm -f "$SERVICE_DIR/$SERVICE_NAME"
+  systemctl --user daemon-reload
+}
+
+cmd_persist() {
+  _create_user_service
+  systemctl --user enable --now "$SERVICE_NAME"
+  log "Systemd user service installed and started."
+  info "  ~/.config/systemd/user/$SERVICE_NAME"
+  info "  Run 'privacity daemon --unpersist' to remove."
+}
+
+cmd_unpersist() {
+  systemctl --user disable --now "$SERVICE_NAME" 2>/dev/null || true
+  _remove_user_service
+  log "Systemd user service stopped and removed."
+}
+
 show_top() {
   local servers=("$@")
   printf "\n"

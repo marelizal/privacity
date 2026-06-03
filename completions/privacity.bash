@@ -16,6 +16,9 @@ _privacity() {
   fi
  
   case "${words[1]}" in
+    daemon)
+      COMPREPLY=($(compgen -W "--persist --unpersist" -- "$cur"))
+      ;;
     help|--help|-h)
       COMPREPLY=($(compgen -W "$subcommands" -- "$cur"))
       ;;

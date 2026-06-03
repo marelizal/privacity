@@ -13,6 +13,8 @@
 #   Commands:
 #     privacity           Interactive guided mode (default)
 #     privacity daemon    Connect in background – no terminal needed
+#     privacity daemon --persist   Install systemd user service
+#     privacity daemon --unpersist Remove systemd user service
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status    Show connection details and live speed
@@ -78,6 +80,8 @@ cmd_help() {
   printf "  ${BOLD}COMMANDS${NC}\n"
   printf "    ${GREEN}privacity${NC}        Interactive guided mode (default)\n"
   printf "    ${GREEN}privacity daemon${NC}  Connect in background – no terminal needed\n"
+  printf "    ${GREEN}privacity daemon --persist${NC}  Install systemd user service\n"
+  printf "    ${GREEN}privacity daemon --unpersist${NC}  Remove systemd user service\n"
   printf "    ${GREEN}privacity list${NC}    Show top servers and available countries\n"
   printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
   printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
@@ -91,6 +95,7 @@ cmd_help() {
   printf "    ${DIM}privacity -c Japan daemon${NC}         Connect to Japan\n"
   printf "    ${DIM}privacity --country US daemon${NC}     Connect to United States\n"
   printf "    ${DIM}privacity -c Korea list${NC}           List Korean servers\n"
+  printf "    ${DIM}privacity daemon --persist${NC}        Auto-connect on login\n"
   printf "\n"
   printf "  ${BOLD}INSTALL${NC}\n"
   printf "    sudo make install\n"
@@ -169,6 +174,18 @@ main() {
 
   case "$cmd" in
     daemon|d)
+      case "${2:-}" in
+        --persist)
+          shift 2
+          cmd_persist
+          exit 0
+          ;;
+        --unpersist)
+          shift 2
+          cmd_unpersist
+          exit 0
+          ;;
+      esac
       if ! _cache_fresh "$CSV"; then
         fetch_servers
       else
