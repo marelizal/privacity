@@ -13,6 +13,7 @@ CSV="$DIR/servers.csv"
 OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
 LAST_HOST="$DIR/last_host"
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/config"
 
 if stat -c %Y /dev/null &>/dev/null; then
   _stat_mtime() { stat -c %Y "$1" 2>/dev/null || echo 0; }
@@ -97,6 +98,19 @@ check_deps() {
   if ! command -v sudo &>/dev/null; then
     die "sudo not found. Install it manually."
   fi
+}
+
+load_config() {
+  [[ -f "$CONFIG_FILE" ]] || return 0
+  local key val
+  while IFS='=' read -r key val; do
+    key="${key// /}"
+    [[ -z "$key" || "$key" == \#* ]] && continue
+    case "$key" in
+      country) CONFIG_COUNTRY="$val" ;;
+      mode)    CONFIG_MODE="$val" ;;
+    esac
+  done < "$CONFIG_FILE"
 }
 
 show_top() {

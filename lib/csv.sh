@@ -30,11 +30,10 @@ parse_servers() {
     return
   fi
 
-  COUNTRY_FILTER="$country_filter" \
   tail -n +3 "$file" | head -n 50 | tr -d '\r' |
   python3 -c "
-import csv, os, sys
-country_filter = os.environ.get('COUNTRY_FILTER', '').strip().lower()
+import csv, sys
+country_filter = sys.argv[1].strip().lower() if len(sys.argv) > 1 else ''
 reader = csv.reader(sys.stdin)
 rows = []
 for row in reader:
@@ -56,7 +55,7 @@ for row in reader:
 rows.sort(key=lambda r: -r[0])
 for score, hostname, country_long, country_short, b64 in rows:
     print(f'{hostname}|{country_long}|{country_short}|{score}|{b64}')
-" 2>/dev/null
+" "$country_filter" 2>/dev/null
 }
 
 list_countries() {
