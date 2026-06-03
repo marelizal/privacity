@@ -53,7 +53,7 @@ connect_interactive() {
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
-  sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" --verb 0 &>/dev/null &
+  _sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" --verb 0 &>/dev/null &
   local ovpn_pid=$!
 
   local spin=('-' '\\' '|' '/')
@@ -75,7 +75,7 @@ connect_interactive() {
     printf "\r  ${RED}x${NC}\n"
     notify "Connection failed" critical
     error "Connection timed out or failed."
-    sudo kill "$ovpn_pid" 2>/dev/null || true
+    _sudo kill "$ovpn_pid" 2>/dev/null || true
     wait "$ovpn_pid" 2>/dev/null || true
     return 1
   fi
@@ -118,7 +118,7 @@ connect_interactive() {
     if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
       printf "\n\n"
       log "Disconnecting..."
-      sudo kill "$ovpn_pid" 2>/dev/null || true
+      _sudo kill "$ovpn_pid" 2>/dev/null || true
       wait "$ovpn_pid" 2>/dev/null || true
       log "Disconnected"
       break
@@ -127,7 +127,7 @@ connect_interactive() {
     if [[ -n "${key:-}" && "${key,,}" == "s" ]]; then
       printf "\n\n"
       log "Switching server..."
-      sudo kill "$ovpn_pid" 2>/dev/null || true
+      _sudo kill "$ovpn_pid" 2>/dev/null || true
       wait "$ovpn_pid" 2>/dev/null || true
       log "Disconnected"
       return 1
@@ -152,7 +152,7 @@ connect_daemon() {
   save_host "$hostname" "$country_long"
 
   log "Starting OpenVPN in daemon mode..."
-  sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" \
+  _sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" \
     --daemon \
     --log "$DIR/openvpn.log" \
     --writepid "$PID_FILE"
@@ -185,7 +185,7 @@ cmd_disconnect() {
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
     notify "Disconnected"
     log "Disconnecting (PID $pid)..."
-    sudo kill "$pid" 2>/dev/null || true
+    _sudo kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
   else
     log "No saved PID found – looking for active OpenVPN processes..."
@@ -193,7 +193,7 @@ cmd_disconnect() {
     pids=$(pgrep -f "openvpn.*$OVPN_CONFIG" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
       # shellcheck disable=SC2086
-      sudo kill $pids 2>/dev/null || true
+      _sudo kill $pids 2>/dev/null || true
       # shellcheck disable=SC2086
       wait $pids 2>/dev/null || true
     else

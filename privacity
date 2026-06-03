@@ -65,8 +65,8 @@ cmd_update() {
   cd "$tmpdir"
 
   log "Installing..."
-  sudo make install >/dev/null 2>&1
-  sudo make completions >/dev/null 2>&1 || true
+  _sudo make install >/dev/null 2>&1
+  _sudo make completions >/dev/null 2>&1 || true
 
   local new_version
   new_version=$(bash -c 'source lib/common.sh 2>/dev/null; echo "$VERSION"' 2>/dev/null || echo "?")

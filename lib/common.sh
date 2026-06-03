@@ -80,6 +80,14 @@ run_with_spinner() {
   return $rc
 }
 
+_sudo() {
+  if [[ $EUID -eq 0 ]]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
 check_deps() {
   for dep in openvpn wget curl base64; do
     if ! command -v "$dep" &>/dev/null; then
@@ -95,14 +103,20 @@ check_deps() {
       read -r yn
       if [[ "${yn,,}" != "n" ]]; then
         log "Installing ${pkg}..."
-        sudo apt install -y "$pkg" || die "Failed to install ${pkg}."
+        _sudo apt install -y "$pkg" || die "Failed to install ${pkg}."
       else
         die "$dep is required to run privacity."
       fi
     fi
   done
-  if ! command -v sudo &>/dev/null; then
-    die "sudo not found. Install it manually."
+  if [[ $EUID -ne 0 ]]; then
+    if ! command -v sudo &>/dev/null; then
+      die "sudo not found. Install it manually."
+    fi
+    if ! sudo -n true 2>/dev/null; then
+      warn "OpenVPN needs root. You will be prompted for sudo password."
+      warn "Run ${BOLD}sudo privacity${NC} to skip prompts."
+    fi
   fi
 }
 
