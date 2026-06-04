@@ -198,6 +198,53 @@ cmd_unpersist() {
   log "Systemd user service stopped and removed."
 }
 
+select_server() {
+  local servers=("$@")
+  local max_show=20
+  local count=${#servers[@]}
+  (( count > max_show )) && count=$max_show
+
+  printf "\n  ${BOLD}${WHITE}Select a server${NC}\n\n"
+  printf "  %-4s %-20s  %-30s  %10s\n" "  #" "Country" "Hostname" "Score"
+  printf -- "  %s\n" "----------------------------------------------------"
+
+  for ((i=0; i<count; i++)); do
+    local hostname country_long score
+    hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
+    country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
+    score=$(echo "${servers[$i]}" | cut -d'|' -f4)
+
+    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'10d${NC}\n" \
+      $((i+1)) "$country_long" "$hostname" "$score"
+  done
+
+  printf "\n"
+  info "Enter server number (1-${count}), [Enter] for #1, [r] refresh, [n] cancel"
+  read -r selection
+
+  if [[ -z "${selection}" ]]; then
+    echo "${servers[0]}"
+    return 0
+  fi
+
+  if [[ "${selection,,}" == "n" ]]; then
+    return 1
+  fi
+
+  if [[ "${selection,,}" == "r" ]]; then
+    return 2
+  fi
+
+  if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 && selection <= count )); then
+    echo "${servers[$((selection-1))]}"
+    return 0
+  fi
+
+  warn "Invalid selection. Using top server."
+  echo "${servers[0]}"
+  return 0
+}
+
 show_top() {
   local servers=("$@")
   printf "\n"

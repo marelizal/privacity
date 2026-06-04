@@ -141,18 +141,22 @@ cmd_list() {
   mapfile -t servers < <(parse_servers "$CSV" "$country")
   ((${#servers[@]})) || die "No servers found${country:+ for $country}."
 
-  printf "\n  ${BOLD}${WHITE}Top servers${NC}"
+  printf "\n  ${BOLD}${WHITE}Servers${NC}"
   [[ -n "$country" ]] && printf " ${DIM}($country)${NC}"
   printf "\n\n"
-  printf "  ${DIM}%-30s  %-30s  %10s${NC}\n" "Country" "Hostname" "Score"
-  printf "  ${DIM}%s${NC}\n" "  ---------------------------------------------------"
+  printf "  ${DIM}%-4s %-20s  %-30s  %10s${NC}\n" "  #" "Country" "Hostname" "Score"
+  printf "  ${DIM}%s${NC}\n" "  -----------------------------------------------------"
 
-  for ((i=0; i<10 && i<${#servers[@]}; i++)); do
+  local count=${#servers[@]}
+  local max_show=20
+  (( count > max_show )) && count=$max_show
+
+  for ((i=0; i<count; i++)); do
     local h c s
     h=$(echo "${servers[$i]}" | cut -d'|' -f1)
     c=$(echo "${servers[$i]}" | cut -d'|' -f2)
     s=$(echo "${servers[$i]}" | cut -d'|' -f4)
-    printf "  %-30s  %-30s  %'10d\n" "$c" "$h" "$s"
+    printf "  %2d)  %-20s  %-30s  %'10d\n" $((i+1)) "$c" "$h" "$s"
   done
 
   if [[ -z "$country" ]]; then
@@ -164,6 +168,11 @@ cmd_list() {
   fi
 
   printf "\n"
+  info "Enter server number to connect (0 to exit): "
+  read -r sel
+  if [[ -n "$sel" && "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#servers[@]} )); then
+    connect_interactive "${servers[$((sel-1))]}"
+  fi
 }
 
 # ──────── Main dispatch ─────────────────────────────────────────────────────
@@ -263,25 +272,17 @@ main() {
         ((${#servers[@]})) || die "No valid servers found."
         log "Analysing servers by score..."
 
-        show_top "${servers[@]}"
-
-        local best="${servers[0]}"
-        local h c
-        h=$(echo "$best" | cut -d'|' -f1)
-        c=$(echo "$best" | cut -d'|' -f2)
-        local s
-        s=$(echo "$best" | cut -d'|' -f4)
-
-        log "Best option found: ${BOLD}$h${NC} (${c}) — score: $(printf "%'d" "$s")"
-
-        printf "\n  ${YELLOW}${BOLD}[?]${NC} Connect? ${DIM}[Y/n]${NC} "
-        read -r yn
-        if [[ "${yn,,}" == "n" ]]; then
-          info "Cancelled."
-          exit 0
+        local selected
+        if ! selected=$(select_server "${servers[@]}"); then
+          local rc=$?
+          if [[ $rc -eq 1 ]]; then
+            info "Cancelled."
+            exit 0
+          fi
+          continue
         fi
 
-        connect_interactive "$best" && break
+        connect_interactive "$selected" && break
       done
       ;;
   esac
