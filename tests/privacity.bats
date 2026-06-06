@@ -41,6 +41,102 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [[ "$output" == *"Korea, Republic of"* ]]
 }
 
+@test "parse_servers outputs ping in field 5" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'" | head -1'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"|10|"* ]]
+}
+
+@test "parse_servers sorts by ping when --fast is true" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'" "" true'
+  [ "$status" -eq 0 ]
+  local first_ping
+  first_ping=$(echo "$output" | head -1 | cut -d'|' -f5)
+  [ "$first_ping" -le 20 ]
+}
+
+@test "parse_servers skips rows with non-numeric score" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Brazil"* ]]
+}
+
+@test "parse_servers skips rows with empty hostname" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"Canada"* ]]
+}
+
+@test "parse_servers skips rows with fewer than 15 columns" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'"'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"short.example.com"* ]]
+}
+
+@test "parse_servers filters by country" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'" "Korea"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Korea, Republic of"* ]]
+  [[ "$output" != *"Japan"* ]]
+  [[ "$output" != *"United States"* ]]
+}
+
+# ──────── list_countries ────────────────────────────────────────────────────
+
+@test "list_countries returns unique countries" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; list_countries "'"$CSV"'"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Japan"* ]]
+  [[ "$output" == *"Korea"* ]]
+  [[ "$output" == *"United States"* ]]
+}
+
+@test "list_countries returns empty for missing file" {
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; list_countries /nonexistent.csv || true'
+  [ "$status" -eq 0 ]
+  [[ -z "$output" ]]
+}
+
+# ──────── _cache_fresh ──────────────────────────────────────────────────────
+
+@test "_cache_fresh returns false for missing file" {
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    _cache_fresh /nonexistent.csv
+  '
+  [ "$status" -ne 0 ]
+}
+
+@test "_cache_fresh returns true for recently written file" {
+  echo "data" > "$CSV"
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    _cache_fresh "'"$CSV"'"
+  '
+  [ "$status" -eq 0 ]
+}
+
+# ──────── show_top ──────────────────────────────────────────────────────────
+
+@test "show_top displays top servers with ping" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    mapfile -t servers < <(parse_servers "'"$CSV"'")
+    show_top "${servers[@]}"
+  '
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"Japan"* ]]
+  [[ "$output" == *"ms"* ]]
+}
+
 # ──────── write_config ─────────────────────────────────────────────────────
 
 @test "write_config strips script-security directive" {

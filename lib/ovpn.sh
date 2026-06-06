@@ -48,7 +48,7 @@ connect_interactive() {
   local hostname country_long base64_data
   hostname=$(echo "$entry" | cut -d'|' -f1)
   country_long=$(echo "$entry" | cut -d'|' -f2)
-  base64_data=$(echo "$entry" | cut -d'|' -f5)
+  base64_data=$(echo "$entry" | cut -d'|' -f6)
 
   header
   log "Realizando conexión..."
@@ -149,7 +149,7 @@ connect_daemon() {
   local hostname country_long base64_data
   hostname=$(echo "$entry" | cut -d'|' -f1)
   country_long=$(echo "$entry" | cut -d'|' -f2)
-  base64_data=$(echo "$entry" | cut -d'|' -f5)
+  base64_data=$(echo "$entry" | cut -d'|' -f6)
 
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
@@ -181,6 +181,32 @@ connect_daemon() {
   fi
 }
 
+_cleanup_tunnel() {
+  local i
+  for i in $(seq 1 10); do
+    ip link show tun0 &>/dev/null || return 0
+    sleep 0.5
+  done
+  ip link show tun0 &>/dev/null && _sudo ip link delete tun0 2>/dev/null || true
+}
+
+_restore_network() {
+  _sudo ip route flush cache 2>/dev/null || true
+
+  if command -v resolvectl &>/dev/null; then
+    _sudo resolvectl revert tun0 2>/dev/null || true
+    _sudo resolvectl flush-caches 2>/dev/null || true
+  fi
+
+  if command -v systemd-resolve &>/dev/null; then
+    _sudo systemd-resolve --flush-caches 2>/dev/null || true
+  fi
+
+  if command -v systemctl &>/dev/null; then
+    _sudo systemctl restart systemd-resolved 2>/dev/null || true
+  fi
+}
+
 cmd_disconnect() {
   local pid
   pid=$(read_pid)
@@ -206,6 +232,8 @@ cmd_disconnect() {
   fi
 
   rm -f "$PID_FILE" "$LAST_HOST"
+  _cleanup_tunnel
+  _restore_network
   log "Disconnected"
 }
 
@@ -248,11 +276,16 @@ cmd_status() {
 cmd_reconnect() {
   local mode="${1:-daemon}"
   local country="${2:-}"
+  local fast="${3:-false}"
   cmd_disconnect 2>/dev/null || true
   sleep 1
   fetch_servers
-  mapfile -t servers < <(parse_servers "$CSV" "$country")
-  log "Analysing servers by score...${country:+ ($country)}"
+  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
+  if [[ "$fast" == "true" ]]; then
+    log "Sorting servers by lowest ping...${country:+ ($country)}"
+  else
+    log "Analysing servers by score...${country:+ ($country)}"
+  fi
   ((${#servers[@]})) || die "No servers available${country:+ for $country}."
 
   local best="${servers[0]}"

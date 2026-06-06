@@ -18,6 +18,9 @@ country = Japan
 
 # Default mode: "daemon" or "interactive"
 mode = daemon
+
+# Sort by lowest ping instead of score
+fast = true
 ```
 
 Blank lines and lines starting with `#` are ignored.
@@ -28,6 +31,7 @@ Blank lines and lines starting with `#` are ignored.
 |---|---|---|
 | `country` | Any VPN Gate country name | Default country filter |
 | `mode` | `daemon` or `interactive` | Default command when none given |
+| `fast` | `true` or `false` | Sort servers by lowest ping instead of score |
 
 ### Precedence
 
@@ -102,6 +106,9 @@ country = Japan
 
 # Modo predeterminado: "daemon" o "interactive"
 mode = daemon
+
+# Ordenar por ping más bajo en vez de puntuación
+fast = true
 ```
 
 Las líneas en blanco y las que comienzan con `#` se ignoran.
@@ -112,6 +119,7 @@ Las líneas en blanco y las que comienzan con `#` se ignoran.
 |---|---|---|
 | `country` | Cualquier país de VPN Gate | Filtro de país predeterminado |
 | `mode` | `daemon` o `interactive` | Comando predeterminado cuando no se especifica ninguno |
+| `fast` | `true` o `false` | Ordenar servidores por ping más bajo en vez de puntuación |
 
 ### Prioridad
 

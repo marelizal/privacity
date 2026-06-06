@@ -5,8 +5,8 @@
 set -euo pipefail
 
 _fetch_servers_cmd() {
-  wget -q -O "$CSV" --timeout=15 "https://www.vpngate.net/api/iphone/" 2>/dev/null ||
-    wget -q -O "$CSV" --timeout=15 "http://www.vpngate.net/api/iphone/"
+  timeout 25 wget -q -O "$CSV" --timeout=10 --tries=2 "https://www.vpngate.net/api/iphone/" 2>/dev/null ||
+    timeout 25 wget -q -O "$CSV" --timeout=10 --tries=2 "http://www.vpngate.net/api/iphone/"
 }
 
 fetch_servers() {
@@ -21,6 +21,7 @@ fetch_servers() {
 parse_servers() {
   local file="$1"
   local country_filter="${2:-}"
+  local sort_by_ping="${3:-false}"
   if [[ ! -f "$file" ]]; then
     warn "Server list not found."
     return
@@ -34,6 +35,7 @@ parse_servers() {
   python3 -c "
 import csv, sys
 country_filter = sys.argv[1].strip().lower() if len(sys.argv) > 1 else ''
+sort_by_ping = sys.argv[2].strip().lower() == 'true' if len(sys.argv) > 2 else False
 reader = csv.reader(sys.stdin)
 rows = []
 for row in reader:
@@ -43,19 +45,24 @@ for row in reader:
     country_long = row[5].strip()
     country_short = row[6].strip()
     score_s = row[2].strip()
+    ping_s = row[3].strip()
     if not score_s.isdigit():
         continue
     score = int(score_s)
+    ping = int(ping_s) if ping_s.isdigit() else 999
     b64 = row[14].strip()
     if not (hostname and country_short and b64):
         continue
     if country_filter and country_filter not in country_long.lower() and country_filter not in country_short.lower():
         continue
-    rows.append((score, hostname, country_long, country_short, b64))
-rows.sort(key=lambda r: -r[0])
-for score, hostname, country_long, country_short, b64 in rows:
-    print(f'{hostname}|{country_long}|{country_short}|{score}|{b64}')
-" "$country_filter" 2>/dev/null
+    rows.append((score, ping, hostname, country_long, country_short, b64))
+if sort_by_ping:
+    rows.sort(key=lambda r: (r[1], -r[0]))
+else:
+    rows.sort(key=lambda r: -r[0])
+for score, ping, hostname, country_long, country_short, b64 in rows:
+    print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|{b64}')
+" "$country_filter" "$sort_by_ping" 2>/dev/null
 }
 
 list_countries() {

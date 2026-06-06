@@ -24,6 +24,7 @@
 #
 #   Options:
 #     -c, --country <name>   Filter servers by country
+#     --fast                 Sort servers by lowest ping instead of highest score
 #     --log-file <path>      Write output to log file
 #     --profile <name>       Use isolated profile (config + data)
 #     --verbose              Show timestamps and detailed output
@@ -85,13 +86,15 @@ cmd_help() {
   printf "\n"
   printf "  ${BOLD}OPTIONS${NC}\n"
   printf "    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)\n"
+  printf "    ${GREEN}--fast${NC}            Sort servers by lowest ping (ms)\n"
   printf "    ${GREEN}--log-file <path>${NC}  Write output to log file\n"
   printf "    ${GREEN}--profile <name>${NC}   Use isolated profile (config + data)\n"
   printf "    ${GREEN}--verbose${NC}          Show timestamps and detailed output\n"
   printf "\n"
   printf "  ${BOLD}COMMANDS${NC}\n"
-  printf "    ${GREEN}privacity${NC}        Interactive guided mode (default)\n"
-  printf "    ${GREEN}privacity daemon${NC}  Connect in background – no terminal needed\n"
+  printf "    ${GREEN}privacity${NC}          Interactive guided mode (default)\n"
+  printf "    ${GREEN}privacity countries${NC}   Show all available countries\n"
+  printf "    ${GREEN}privacity daemon${NC}     Connect in background – no terminal needed\n"
   printf "    ${GREEN}privacity daemon --persist${NC}  Install systemd user service\n"
   printf "    ${GREEN}privacity daemon --unpersist${NC}  Remove systemd user service\n"
   printf "    ${GREEN}privacity list${NC}    Show top servers and available countries\n"
@@ -104,9 +107,10 @@ cmd_help() {
   printf "\n"
   printf "  ${BOLD}EXAMPLES${NC}\n"
   printf "    privacity                           Interactive mode\n"
-  printf "    ${DIM}privacity -c Japan daemon${NC}         Connect to Japan\n"
-  printf "    ${DIM}privacity --country US daemon${NC}     Connect to United States\n"
-  printf "    ${DIM}privacity -c Korea list${NC}           List Korean servers\n"
+  printf "  ${DIM}privacity countries${NC}                 Show available countries\n"
+  printf "  ${DIM}privacity -c Japan daemon${NC}           Connect to Japan\n"
+  printf "  ${DIM}privacity --country US --fast daemon${NC}  Fastest ping to US\n"
+  printf "  ${DIM}privacity -c Korea list${NC}             List Korean servers\n"
   printf "    ${DIM}privacity daemon --persist${NC}        Auto-connect on login\n"
   printf "\n"
   printf "  ${BOLD}INSTALL${NC}\n"
@@ -127,10 +131,49 @@ cmd_speedtest() {
   printf "\n"
 }
 
+# ──────── Countries command ─────────────────────────────────────────────────
+
+cmd_countries() {
+  if ! _cache_fresh "$CSV"; then
+    fetch_servers
+  fi
+
+  local countries
+  countries=$(list_countries "$CSV" 2>/dev/null) || die "No server list available."
+
+  printf "\n  ${BOLD}${WHITE}Available countries${NC}\n\n"
+  echo "$countries" | while IFS= read -r line; do
+    printf "  ${GREEN}●${NC} %s\n" "$line"
+  done
+  printf "\n"
+  info "Use ${BOLD}privacity -c <name>${NC} to filter by country"
+  info "Use ${BOLD}privacity -c <name> list${NC} to list servers in a country"
+  printf "\n"
+}
+
+_no_servers_hint() {
+  local country="$1"
+  error "No servers found${country:+ for '$country'}"
+  if [[ -n "$country" ]] && _cache_fresh "$CSV" 2>/dev/null; then
+    local countries
+    countries=$(list_countries "$CSV" 2>/dev/null)
+    local match
+    match=$(echo "$countries" | grep -i "$country" || true)
+    if [[ -n "$match" ]]; then
+      info "Did you mean: ${BOLD}$match${NC}?"
+    else
+      warn "Available countries:"
+      echo "$countries" | sed 's/^/  /'
+    fi
+  fi
+  exit 1
+}
+
 # ──────── List command ──────────────────────────────────────────────────────
 
 cmd_list() {
   local country="${1:-}"
+  local fast="${2:-false}"
 
   if ! _cache_fresh "$CSV"; then
     fetch_servers
@@ -138,25 +181,33 @@ cmd_list() {
     log "Using cached server list..."
   fi
 
-  mapfile -t servers < <(parse_servers "$CSV" "$country")
+  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
   ((${#servers[@]})) || die "No servers found${country:+ for $country}."
 
   printf "\n  ${BOLD}${WHITE}Servers${NC}"
   [[ -n "$country" ]] && printf " ${DIM}($country)${NC}"
   printf "\n\n"
-  printf "  ${DIM}%-4s %-20s  %-30s  %10s${NC}\n" "  #" "Country" "Hostname" "Score"
-  printf "  ${DIM}%s${NC}\n" "  -----------------------------------------------------"
+  printf "  ${DIM}%-4s %-20s  %-30s  %8s  %6s${NC}\n" "  #" "Country" "Hostname" "Score" "Ping"
+  printf "  ${DIM}%s${NC}\n" "  -----------------------------------------------------------"
 
   local count=${#servers[@]}
   local max_show=20
   (( count > max_show )) && count=$max_show
 
   for ((i=0; i<count; i++)); do
-    local h c s
+    local h c s p ping_disp
     h=$(echo "${servers[$i]}" | cut -d'|' -f1)
     c=$(echo "${servers[$i]}" | cut -d'|' -f2)
     s=$(echo "${servers[$i]}" | cut -d'|' -f4)
-    printf "  %2d)  %-20s  %-30s  %'10d\n" $((i+1)) "$c" "$h" "$s"
+    p=$(echo "${servers[$i]}" | cut -d'|' -f5)
+    if [[ "$p" -le 30 ]]; then
+      ping_disp="${GREEN}${p}ms${NC}"
+    elif [[ "$p" -le 80 ]]; then
+      ping_disp="${YELLOW}${p}ms${NC}"
+    else
+      ping_disp="${RED}${p}ms${NC}"
+    fi
+    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'8d${NC}  %b\n" $((i+1)) "$c" "$h" "$s" "$ping_disp"
   done
 
   if [[ -z "$country" ]]; then
@@ -184,11 +235,13 @@ main() {
   load_config
 
   local country="${CONFIG_COUNTRY:-}"
+  local fast="${CONFIG_FAST:-false}"
   local default_mode="${CONFIG_MODE:-}"
   # shellcheck disable=SC2034
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
+      --fast) fast=true; shift ;;
       --log-file) LOG_FILE="$2"; shift 2 ;;
       --profile) use_profile "$2"; shift 2 ;;
       --verbose) VERBOSE=true; shift ;;
@@ -224,10 +277,21 @@ main() {
       else
         log "Using cached server list..."
       fi
-      mapfile -t servers < <(parse_servers "$CSV" "$country")
-      ((${#servers[@]})) || die "No servers found${country:+ for $country}."
-      log "Analysing servers by score..."
-      connect_daemon "${servers[0]}"
+      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
+      if ((${#servers[@]})); then
+        if [[ "$fast" == "true" ]]; then
+          log "Sorting servers by lowest ping..."
+        else
+          log "Analysing servers by score..."
+        fi
+        connect_daemon "${servers[0]}"
+      else
+        _no_servers_hint "$country"
+      fi
+      ;;
+
+    countries|paises)
+      cmd_countries
       ;;
 
     disconnect|down|kill)
@@ -235,7 +299,7 @@ main() {
       ;;
 
     reconnect|re)
-      cmd_reconnect "daemon" "$country"
+      cmd_reconnect "daemon" "$country" "$fast"
       ;;
 
     status|st)
@@ -243,7 +307,7 @@ main() {
       ;;
 
     list|ls)
-      cmd_list "$country"
+      cmd_list "$country" "$fast"
       ;;
 
     update|up)
@@ -268,9 +332,17 @@ main() {
           log "Using cached server list..."
         fi
 
-        mapfile -t servers < <(parse_servers "$CSV" "$country")
-        ((${#servers[@]})) || die "No valid servers found."
-        log "Analysing servers by score..."
+        mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
+        if ! ((${#servers[@]})); then
+          _no_servers_hint "$country"
+        fi
+        local sort_msg
+        if [[ "$fast" == "true" ]]; then
+          sort_msg="Sorting servers by lowest ping..."
+        else
+          sort_msg="Analysing servers by score..."
+        fi
+        log "$sort_msg"
 
         local selected
         if ! selected=$(select_server "${servers[@]}"); then
@@ -287,5 +359,4 @@ main() {
       ;;
   esac
 }
-
 return 0 2>/dev/null || main "$@"

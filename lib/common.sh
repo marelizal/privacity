@@ -56,16 +56,24 @@ header() {
 run_with_spinner() {
   local msg="$1"
   local func="$2"
+  local hard_timeout="${3:-30}"
 
   "$func" &
   local pid=$!
+  local start=$SECONDS
 
   local spin=('-' '\\' '|' '/')
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
+    if (( SECONDS - start > hard_timeout )); then
+      kill "$pid" 2>/dev/null || true
+      wait "$pid" 2>/dev/null || true
+      printf "\r  ${RED}x${NC} %s\n" "$msg"
+      return 1
+    fi
     printf "\r  ${YELLOW}${spin[$i]}${NC} %s" "$msg"
     i=$(( (i + 1) % 4 ))
-    sleep 0.1
+    sleep 0.25
   done
 
   wait "$pid"
@@ -148,6 +156,7 @@ load_config() {
     case "$key" in
       country) CONFIG_COUNTRY="$val" ;;
       mode)    CONFIG_MODE="$val" ;;
+      fast)    CONFIG_FAST="$val" ;;
     esac
   done < "$CONFIG_FILE"
 }
@@ -205,17 +214,26 @@ select_server() {
   (( count > max_show )) && count=$max_show
 
   printf "\n  ${BOLD}${WHITE}Select a server${NC}\n\n"
-  printf "  %-4s %-20s  %-30s  %10s\n" "  #" "Country" "Hostname" "Score"
-  printf -- "  %s\n" "----------------------------------------------------"
+  printf "  %-4s %-20s  %-30s  %8s  %6s\n" "  #" "Country" "Hostname" "Score" "Ping"
+  printf -- "  %s\n" "----------------------------------------------------------"
 
   for ((i=0; i<count; i++)); do
-    local hostname country_long score
+    local hostname country_long score ping_ms
     hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
     country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
     score=$(echo "${servers[$i]}" | cut -d'|' -f4)
+    ping_ms=$(echo "${servers[$i]}" | cut -d'|' -f5)
 
-    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'10d${NC}\n" \
-      $((i+1)) "$country_long" "$hostname" "$score"
+    if [[ "$ping_ms" -le 30 ]]; then
+      ping_disp="${GREEN}${ping_ms}ms${NC}"
+    elif [[ "$ping_ms" -le 80 ]]; then
+      ping_disp="${YELLOW}${ping_ms}ms${NC}"
+    else
+      ping_disp="${RED}${ping_ms}ms${NC}"
+    fi
+
+    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'8d${NC}  %b\n" \
+      $((i+1)) "$country_long" "$hostname" "$score" "$ping_disp"
   done
 
   printf "\n"
@@ -249,16 +267,25 @@ show_top() {
   local servers=("$@")
   printf "\n"
   for ((i=0; i<3 && i<${#servers[@]}; i++)); do
-    local hostname country_long score
+    local hostname country_long score ping_ms
     hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
     country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
     score=$(echo "${servers[$i]}" | cut -d'|' -f4)
+    ping_ms=$(echo "${servers[$i]}" | cut -d'|' -f5)
 
-    local marker
+    local marker ping_disp
     ((i==0)) && marker="${GREEN}${BOLD}✓${NC} " || marker="  "
 
-    printf "  ${marker}%-20s  %-30s  ${YELLOW}%'10d${NC}\n" \
-      "$country_long" "$hostname" "$score"
+    if [[ "$ping_ms" -le 30 ]]; then
+      ping_disp="${GREEN}${ping_ms}ms${NC}"
+    elif [[ "$ping_ms" -le 80 ]]; then
+      ping_disp="${YELLOW}${ping_ms}ms${NC}"
+    else
+      ping_disp="${RED}${ping_ms}ms${NC}"
+    fi
+
+    printf "  ${marker}%-20s  %-30s  ${YELLOW}%'10d${NC}  %b\n" \
+      "$country_long" "$hostname" "$score" "$ping_disp"
   done
   printf "\n"
 }

@@ -23,9 +23,12 @@ CLI tool that fetches the fastest public [VPN Gate](https://www.vpngate.net/) se
 - 🗂️ Multi-profile: `privacity --profile work daemon`
 - 📝 Log to file with `--log-file <path>` + `--verbose` timestamps
 - 🌍 Country filter: `privacity -c Japan daemon`
-- ⚙️ Config file: `~/.config/privacity/config` (country, mode)
+- ⚙️ Config file: `~/.config/privacity/config` (country, mode, fast)
+- ⚡ Low-latency sort: `privacity --fast` (sort by ping instead of score)
+- 📋 List countries: `privacity countries`
+- 🚦 Smart country hints when name is wrong or missing
 - 💤 Systemd persist: `privacity daemon --persist`
-- 🧪 24 bats tests — `shellcheck` clean (0 warnings)
+- 🧪 bats tests — `shellcheck` clean
 
 ### Quick start
 
@@ -54,9 +57,12 @@ Herramienta CLI que obtiene los servidores públicos más rápidos de [VPN Gate]
 - 🗂️ Multi-perfil: `privacity --profile trabajo daemon`
 - 📝 Log a archivo con `--log-file <ruta>` + marcas de tiempo con `--verbose`
 - 🌍 Filtro por país: `privacity -c Japon daemon`
-- ⚙️ Archivo de configuración: `~/.config/privacity/config` (país, modo)
+- ⚙️ Archivo de configuración: `~/.config/privacity/config` (país, modo, fast)
+- ⚡ Orden por latencia: `privacity --fast` (ordena por ping en vez de puntuación)
+- 📋 Listar países: `privacity countries`
+- 🚦 Sugerencias de país cuando el nombre es incorrecto
 - 💤 Persistencia systemd: `privacity daemon --persist`
-- 🧪 24 pruebas bats — `shellcheck` limpio (0 advertencias)
+- 🧪 pruebas bats — `shellcheck` limpio
 
 ### Inicio rápido
 

@@ -19,8 +19,9 @@ Global options must come **before** the command.
 ### Global options
 
 | Option | Description |
-|---|---|
+|---|---|---|
 | `-c`, `--country <name>` | Filter servers by country (e.g. `Japan`, `US`, `Korea, Republic of`) |
+| `--fast` | Sort servers by lowest ping (ms) instead of highest score |
 | `--profile <name>` | Isolated profile (separate config + data dirs) |
 | `--log-file <path>` | Write all output to a file (tee) |
 | `--verbose` | Show timestamps in output |
@@ -38,7 +39,19 @@ Controls during connection:
 ```
 privacity
 privacity -c Japan
+privacity --fast
+privacity -c Japan --fast
 ```
+
+#### `countries`
+
+Show all available countries and their codes from the cached server list.
+
+```
+privacity countries
+```
+
+If the server list hasn't been downloaded yet, it fetches it first. Useful before using `-c`.
 
 #### `daemon`
 
@@ -47,6 +60,7 @@ Connect in background. No terminal interaction needed after launch.
 ```
 privacity daemon
 privacity -c Japan daemon
+privacity -c Japan --fast daemon
 privacity --profile work daemon
 ```
 
@@ -102,11 +116,12 @@ privacity -c Japan speedtest
 
 #### `list`
 
-Show the top 10 servers by score and all available countries.
+Show the top 20 servers with score and ping (ms), and all available countries.
 
 ```
 privacity list
 privacity -c Korea list
+privacity --fast list
 ```
 
 #### `update`
@@ -181,8 +196,9 @@ Las opciones globales deben ir **antes** del comando.
 ### Opciones globales
 
 | Opción | Descripción |
-|---|---|
+|---|---|---|
 | `-c`, `--country <nombre>` | Filtrar servidores por país (ej. `Japan`, `US`, `Korea, Republic of`) |
+| `--fast` | Ordenar servidores por ping más bajo (ms) en vez de puntuación |
 | `--profile <nombre>` | Perfil aislado (configuración + datos separados) |
 | `--log-file <ruta>` | Escribir toda la salida a un archivo (tee) |
 | `--verbose` | Mostrar marcas de tiempo en la salida |
@@ -200,6 +216,16 @@ Controles durante la conexión:
 ```
 privacity
 privacity -c Japan
+privacity --fast
+privacity -c Japan --fast
+```
+
+#### `countries`
+
+Muestra todos los países disponibles y sus códigos de la lista de servidores cacheada.
+
+```
+privacity countries
 ```
 
 #### `daemon`
@@ -209,6 +235,7 @@ Conectar en segundo plano. No requiere interacción con la terminal después del
 ```
 privacity daemon
 privacity -c Japan daemon
+privacity -c Japan --fast daemon
 privacity --profile trabajo daemon
 ```
 
@@ -264,11 +291,12 @@ privacity -c Japan speedtest
 
 #### `list`
 
-Mostrar los 10 mejores servidores por puntuación y todos los países disponibles.
+Mostrar los 20 mejores servidores con puntuación y ping (ms), y todos los países disponibles.
 
 ```
 privacity list
 privacity -c Korea list
+privacity --fast list
 ```
 
 #### `update`
