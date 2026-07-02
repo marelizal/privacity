@@ -5,7 +5,7 @@ _PRIVACITY_COMMON_LOADED=1
 
 set -euo pipefail
 
-VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.0.0")"
+VERSION="$(git describe --always --tags --dirty 2>/dev/null || echo "1.2.0")"
 VERSION="${VERSION#v}"
 readonly VERSION
 
@@ -15,6 +15,8 @@ DIR="$DIR_BASE"
 CSV="$DIR/servers.csv"
 OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
+WG_INTERFACE="wg-privacity"
+WG_CONF="$DIR/wireguard.conf"
 LAST_HOST="$DIR/last_host"
 CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/config"
 LOG_FILE=""
@@ -47,11 +49,6 @@ error()  { _ts; printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
 info()   { _ts; printf "  ${CYAN}%s${NC}\n" "$*"; }
 dim()    { printf "${DIM}%s${NC}\n" "$*"; }
 die()    { error "$1"; exit 1; }
-
-header() {
-  clear
-  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n\n"
-}
 
 run_with_spinner() {
   local msg="$1"
@@ -99,14 +96,15 @@ _sudo() {
 }
 
 check_deps() {
-  for dep in openvpn wget curl base64; do
+  for dep in openvpn wget curl base64 wg-quick; do
     if ! command -v "$dep" &>/dev/null; then
       local pkg
       case "$dep" in
-        openvpn) pkg="openvpn" ;;
-        wget)    pkg="wget" ;;
-        curl)    pkg="curl" ;;
-        base64)  pkg="coreutils" ;;
+        openvpn)   pkg="openvpn" ;;
+        wget)      pkg="wget" ;;
+        curl)      pkg="curl" ;;
+        base64)    pkg="coreutils" ;;
+        wg-quick)  pkg="wireguard-tools" ;;
       esac
       warn "$dep is not installed."
       printf "  ${YELLOW}${BOLD}[?]${NC} Install ${pkg}? ${DIM}[Y/n]${NC} "
@@ -154,9 +152,10 @@ load_config() {
     key="${key// /}"
     [[ -z "$key" || "$key" == \#* ]] && continue
     case "$key" in
-      country) CONFIG_COUNTRY="$val" ;;
-      mode)    CONFIG_MODE="$val" ;;
-      fast)    CONFIG_FAST="$val" ;;
+      country)  CONFIG_COUNTRY="$val" ;;
+      mode)     CONFIG_MODE="$val" ;;
+      fast)     CONFIG_FAST="$val" ;;
+      protocol) CONFIG_PROTOCOL="$val" ;;
     esac
   done < "$CONFIG_FILE"
 }
@@ -207,85 +206,4 @@ cmd_unpersist() {
   log "Systemd user service stopped and removed."
 }
 
-select_server() {
-  local servers=("$@")
-  local max_show=20
-  local count=${#servers[@]}
-  (( count > max_show )) && count=$max_show
 
-  printf "\n  ${BOLD}${WHITE}Select a server${NC}\n\n"
-  printf "  %-4s %-20s  %-30s  %8s  %6s\n" "  #" "Country" "Hostname" "Score" "Ping"
-  printf -- "  %s\n" "----------------------------------------------------------"
-
-  for ((i=0; i<count; i++)); do
-    local hostname country_long score ping_ms
-    hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
-    country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
-    score=$(echo "${servers[$i]}" | cut -d'|' -f4)
-    ping_ms=$(echo "${servers[$i]}" | cut -d'|' -f5)
-
-    if [[ "$ping_ms" -le 30 ]]; then
-      ping_disp="${GREEN}${ping_ms}ms${NC}"
-    elif [[ "$ping_ms" -le 80 ]]; then
-      ping_disp="${YELLOW}${ping_ms}ms${NC}"
-    else
-      ping_disp="${RED}${ping_ms}ms${NC}"
-    fi
-
-    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'8d${NC}  %b\n" \
-      $((i+1)) "$country_long" "$hostname" "$score" "$ping_disp"
-  done
-
-  printf "\n"
-  info "Enter server number (1-${count}), [Enter] for #1, [r] refresh, [n] cancel"
-  read -r selection
-
-  if [[ -z "${selection}" ]]; then
-    echo "${servers[0]}"
-    return 0
-  fi
-
-  if [[ "${selection,,}" == "n" ]]; then
-    return 1
-  fi
-
-  if [[ "${selection,,}" == "r" ]]; then
-    return 2
-  fi
-
-  if [[ "$selection" =~ ^[0-9]+$ ]] && (( selection >= 1 && selection <= count )); then
-    echo "${servers[$((selection-1))]}"
-    return 0
-  fi
-
-  warn "Invalid selection. Using top server."
-  echo "${servers[0]}"
-  return 0
-}
-
-show_top() {
-  local servers=("$@")
-  printf "\n"
-  for ((i=0; i<3 && i<${#servers[@]}; i++)); do
-    local hostname country_long score ping_ms
-    hostname=$(echo "${servers[$i]}" | cut -d'|' -f1)
-    country_long=$(echo "${servers[$i]}" | cut -d'|' -f2)
-    score=$(echo "${servers[$i]}" | cut -d'|' -f4)
-    ping_ms=$(echo "${servers[$i]}" | cut -d'|' -f5)
-
-    local marker ping_disp
-    ((i==0)) && marker="${GREEN}${BOLD}✓${NC} " || marker="  "
-
-    if [[ "$ping_ms" -le 30 ]]; then
-      ping_disp="${GREEN}${ping_ms}ms${NC}"
-    elif [[ "$ping_ms" -le 80 ]]; then
-      ping_disp="${YELLOW}${ping_ms}ms${NC}"
-    else
-      ping_disp="${RED}${ping_ms}ms${NC}"
-    fi
-
-    printf "  ${marker}%-20s  %-30s  ${YELLOW}%'10d${NC}  %b\n" \
-      "$country_long" "$hostname" "$score" "$ping_disp"
-  done
-  printf "\n"
-}

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# privacity — VPN Gate auto-connector with guided CLI and daemon mode
+# privacity — VPN Gate auto-connector with daemon mode
 #
 # Author:  Martin
 # License: GPL v3 (see LICENSE file)
@@ -11,10 +11,12 @@
 # the whole connection lifecycle.
 #
 #   Commands:
-#     privacity             Interactive guided mode (default)
+#     privacity             Daemon mode (default) – connect in background
 #     privacity daemon      Connect in background – no terminal needed
 #     privacity daemon --persist   Install systemd user service
 #     privacity daemon --unpersist Remove systemd user service
+#     privacity --countries       Show all available countries
+#     privacity countries         Show all available countries
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status      Show connection details and live speed
@@ -24,7 +26,9 @@
 #
 #   Options:
 #     -c, --country <name>   Filter servers by country
+#     --countries            Show all available countries
 #     --fast                 Sort servers by lowest ping instead of highest score
+#     --protocol <ovpn|wg|auto>  Force VPN protocol (default: auto)
 #     --log-file <path>      Write output to log file
 #     --profile <name>       Use isolated profile (config + data)
 #     --verbose              Show timestamps and detailed output
@@ -44,10 +48,24 @@ else
   LIB_DIR="/usr/local/lib/privacity"
 fi
 # shellcheck disable=SC1090
-for _privacity_lib in common net speed csv ovpn; do
-  source "$LIB_DIR/$_privacity_lib.sh"
+for _privacity_lib in common net speed csv ovpn wg; do
+  source "$LIB_DIR/$_privacity_lib.sh" 2>/dev/null || true
 done
 unset _privacity_lib
+
+
+# ──────── Tunnel dispatcher ──────────────────────────────────────────────────
+
+connect_tunnel() {
+  local entry="$1"
+  local protocol
+  protocol=$(echo "$entry" | cut -d'|' -f6)
+  case "$protocol" in
+    wg) connect_wireguard "$entry" ;;
+    ovpn) connect_daemon "$entry" ;;
+    *) die "Unknown protocol: $protocol" ;;
+  esac
+}
 
 # ──────── Update ─────────────────────────────────────────────────────────────
 
@@ -86,13 +104,16 @@ cmd_help() {
   printf "\n"
   printf "  ${BOLD}OPTIONS${NC}\n"
   printf "    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)\n"
+  printf "    ${GREEN}--countries${NC}       Show all available countries\n"
   printf "    ${GREEN}--fast${NC}            Sort servers by lowest ping (ms)\n"
+  printf "    ${GREEN}--protocol <type>${NC}  Force protocol: ovpn, wg, auto (default)\n"
   printf "    ${GREEN}--log-file <path>${NC}  Write output to log file\n"
   printf "    ${GREEN}--profile <name>${NC}   Use isolated profile (config + data)\n"
   printf "    ${GREEN}--verbose${NC}          Show timestamps and detailed output\n"
   printf "\n"
   printf "  ${BOLD}COMMANDS${NC}\n"
-  printf "    ${GREEN}privacity${NC}          Interactive guided mode (default)\n"
+  printf "    ${GREEN}privacity${NC}          Daemon mode — connect in background (default)\n"
+  printf "    ${GREEN}privacity --countries${NC}  Show all available countries\n"
   printf "    ${GREEN}privacity countries${NC}   Show all available countries\n"
   printf "    ${GREEN}privacity daemon${NC}     Connect in background – no terminal needed\n"
   printf "    ${GREEN}privacity daemon --persist${NC}  Install systemd user service\n"
@@ -106,10 +127,10 @@ cmd_help() {
   printf "    ${GREEN}privacity help${NC}        Show this message\n"
   printf "\n"
   printf "  ${BOLD}EXAMPLES${NC}\n"
-  printf "    privacity                           Interactive mode\n"
-  printf "  ${DIM}privacity countries${NC}                 Show available countries\n"
-  printf "  ${DIM}privacity -c Japan daemon${NC}           Connect to Japan\n"
-  printf "  ${DIM}privacity --country US --fast daemon${NC}  Fastest ping to US\n"
+  printf "    privacity                           Connect to best server (daemon)\n"
+  printf "  ${DIM}privacity --countries${NC}               Show available countries\n"
+  printf "  ${DIM}privacity -c Japan${NC}                  Connect to Japan\n"
+  printf "  ${DIM}privacity -c US --fast${NC}              Fastest ping to US\n"
   printf "  ${DIM}privacity -c Korea list${NC}             List Korean servers\n"
   printf "    ${DIM}privacity daemon --persist${NC}        Auto-connect on login\n"
   printf "\n"
@@ -218,12 +239,6 @@ cmd_list() {
     echo "$countries" | tr '\n' ' ' | fold -s -w 70 | sed 's/^/  /'
   fi
 
-  printf "\n"
-  info "Enter server number to connect (0 to exit): "
-  read -r sel
-  if [[ -n "$sel" && "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#servers[@]} )); then
-    connect_interactive "${servers[$((sel-1))]}"
-  fi
 }
 
 # ──────── Main dispatch ─────────────────────────────────────────────────────
@@ -236,15 +251,18 @@ main() {
 
   local country="${CONFIG_COUNTRY:-}"
   local fast="${CONFIG_FAST:-false}"
+  local protocol="${CONFIG_PROTOCOL:-auto}"
   local default_mode="${CONFIG_MODE:-}"
   # shellcheck disable=SC2034
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
       --fast) fast=true; shift ;;
+      --protocol) protocol="$2"; shift 2 ;;
       --log-file) LOG_FILE="$2"; shift 2 ;;
       --profile) use_profile "$2"; shift 2 ;;
       --verbose) VERBOSE=true; shift ;;
+      --countries) cmd_countries; exit 0 ;;
       --) shift; break ;;
       *) break ;;
     esac
@@ -256,7 +274,7 @@ main() {
     printf "\n[%s] === privacity session started ===\n" "$(date '+%Y-%m-%d %H:%M:%S')"
   fi
 
-  local cmd="${1:-${default_mode}}"
+  local cmd="${1:-${default_mode:-daemon}}"
 
   case "$cmd" in
     daemon|d)
@@ -277,14 +295,14 @@ main() {
       else
         log "Using cached server list..."
       fi
-      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
+      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
       if ((${#servers[@]})); then
         if [[ "$fast" == "true" ]]; then
           log "Sorting servers by lowest ping..."
         else
           log "Analysing servers by score..."
         fi
-        connect_daemon "${servers[0]}"
+        connect_tunnel "${servers[0]}"
       else
         _no_servers_hint "$country"
       fi
@@ -299,7 +317,7 @@ main() {
       ;;
 
     reconnect|re)
-      cmd_reconnect "daemon" "$country" "$fast"
+      cmd_reconnect "$country" "$fast" "$protocol"
       ;;
 
     status|st)
@@ -323,39 +341,22 @@ main() {
       ;;
 
     *)
-      while true; do
-        header
-
-        if ! _cache_fresh "$CSV"; then
-          fetch_servers
-        else
-          log "Using cached server list..."
-        fi
-
-        mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
-        if ! ((${#servers[@]})); then
-          _no_servers_hint "$country"
-        fi
-        local sort_msg
+      if ! _cache_fresh "$CSV"; then
+        fetch_servers
+      else
+        log "Using cached server list..."
+      fi
+      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
+      if ((${#servers[@]})); then
         if [[ "$fast" == "true" ]]; then
-          sort_msg="Sorting servers by lowest ping..."
+          log "Sorting servers by lowest ping..."
         else
-          sort_msg="Analysing servers by score..."
+          log "Analysing servers by score..."
         fi
-        log "$sort_msg"
-
-        local selected
-        if ! selected=$(select_server "${servers[@]}"); then
-          local rc=$?
-          if [[ $rc -eq 1 ]]; then
-            info "Cancelled."
-            exit 0
-          fi
-          continue
-        fi
-
-        connect_interactive "$selected" && break
-      done
+        connect_tunnel "${servers[0]}"
+      else
+        _no_servers_hint "$country"
+      fi
       ;;
   esac
 }

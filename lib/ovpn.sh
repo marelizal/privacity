@@ -21,12 +21,6 @@ write_config() {
   fi
 }
 
-_tunnel_is_up() {
-  local pid=$1
-  ip link show tun0 &>/dev/null || return 1
-  kill -0 "$pid" 2>/dev/null || return 1
-}
-
 save_pid() { echo "$1" > "$PID_FILE"; }
 
 read_pid() {
@@ -43,113 +37,12 @@ read_host() {
   fi
 }
 
-connect_interactive() {
-  local entry="$1"
-  local hostname country_long base64_data
-  hostname=$(echo "$entry" | cut -d'|' -f1)
-  country_long=$(echo "$entry" | cut -d'|' -f2)
-  base64_data=$(echo "$entry" | cut -d'|' -f6)
-
-  header
-  log "Realizando conexión..."
-
-  write_config "$base64_data"
-  save_host "$hostname" "$country_long"
-
-  _sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" --verb 0 &>/dev/null &
-  local ovpn_pid=$!
-
-  local spin=('-' '\\' '|' '/')
-  local i=0 connected=false
-  for _ in $(seq 1 20); do
-    if _tunnel_is_up "$ovpn_pid"; then
-      connected=true
-      break
-    fi
-    if ! kill -0 "$ovpn_pid" 2>/dev/null; then
-      break
-    fi
-    printf "\r  ${spin[$i]} Conectando..."
-    i=$(( (i + 1) % 4 ))
-    sleep 1
-  done
-
-  if ! $connected; then
-    printf "\r  ${RED}x${NC} Conexión fallida\n"
-    notify "Connection failed" critical
-    error "Connection timed out or failed."
-    _sudo kill "$ovpn_pid" 2>/dev/null || true
-    wait "$ovpn_pid" 2>/dev/null || true
-    return 1
-  fi
-
-  printf "\r  ${GREEN}✓${NC} Conectado a ${hostname} (${country_long})\n"
-  notify "Connected to $hostname ($country_long)"
-
-  check_internet
-
-  local speed_mbps
-  speed_mbps=$(measure_speed)
-
-  header
-
-  local ext_ip ping_ms rx1 rx2 tx1 tx2
-  ext_ip=$(get_external_ip)
-  ping_ms=$(get_ping)
-
-  rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-  tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "External IP" "$ext_ip"
-  printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
-  printf "  ${BOLD}%-14s${NC} %s\n" "Location" "$country_long"
-  printf "  ${DIM}↓ 0 KB/s  |  ↑ 0 KB/s${NC}\n"
-  printf "  ${BOLD}%-14s${NC} ${BOLD}%s${NC}\n" "Download" "${speed_mbps} Mbps"
-  printf "  ${GREEN}✓${NC} VPN active. ${BOLD}Q${NC} disconnect  ${BOLD}S${NC} switch\n"
-
-  while true; do
-    rx2=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx2=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
-    local rx_speed=$(( (rx2 - rx1) / 2048 ))
-    local tx_speed=$(( (tx2 - tx1) / 2048 ))
-    rx1=$rx2
-    tx1=$tx2
-
-    printf "\033[3A\r  ${DIM}↓ ${rx_speed} KB/s  |  ↑ ${tx_speed} KB/s${NC}    \033[3B\r"
-
-    read -r -s -t 2 -n1 key || true
-    if [[ -n "${key:-}" && "${key,,}" == "q" ]]; then
-      printf "\n\n"
-      log "Disconnecting..."
-      _sudo kill "$ovpn_pid" 2>/dev/null || true
-      wait "$ovpn_pid" 2>/dev/null || true
-      log "Disconnected"
-      break
-    fi
-
-    if [[ -n "${key:-}" && "${key,,}" == "s" ]]; then
-      printf "\n\n"
-      log "Switching server..."
-      _sudo kill "$ovpn_pid" 2>/dev/null || true
-      wait "$ovpn_pid" 2>/dev/null || true
-      log "Disconnected"
-      return 1
-    fi
-
-    if ! kill -0 "$ovpn_pid" 2>/dev/null; then
-      printf "\n\n"
-      warn "VPN connection was lost."
-      return 1
-    fi
-  done
-}
-
 connect_daemon() {
   local entry="$1"
   local hostname country_long base64_data
   hostname=$(echo "$entry" | cut -d'|' -f1)
   country_long=$(echo "$entry" | cut -d'|' -f2)
-  base64_data=$(echo "$entry" | cut -d'|' -f6)
+  base64_data=$(echo "$entry" | cut -d'|' -f7)
 
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
@@ -194,6 +87,7 @@ _restore_network() {
   _sudo ip route flush cache 2>/dev/null || true
 
   if command -v resolvectl &>/dev/null; then
+    _sudo resolvectl revert "$WG_INTERFACE" 2>/dev/null || true
     _sudo resolvectl revert tun0 2>/dev/null || true
     _sudo resolvectl flush-caches 2>/dev/null || true
   fi
@@ -208,6 +102,11 @@ _restore_network() {
 }
 
 cmd_disconnect() {
+  if ip link show "$WG_INTERFACE" &>/dev/null 2>&1; then
+    disconnect_wireguard
+    return 0
+  fi
+
   local pid
   pid=$(read_pid)
 
@@ -243,9 +142,13 @@ cmd_status() {
     IFS='|' read -r hostname country_long < "$LAST_HOST"
   fi
 
+  local vpn_intf=""
+  ip link show tun0 &>/dev/null 2>&1 && vpn_intf="tun0"
+  ip link show "$WG_INTERFACE" &>/dev/null 2>&1 && vpn_intf="$WG_INTERFACE"
+
   printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}status${NC}\n"
 
-  if ip link show tun0 &>/dev/null 2>&1; then
+  if [[ -n "$vpn_intf" ]]; then
     printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
     printf "  ${BOLD}%-14s${NC} %s\n" "Server" "${hostname:---}"
     printf "  ${BOLD}%-14s${NC} %s\n" "Country" "${country_long:---}"
@@ -257,11 +160,11 @@ cmd_status() {
     printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
 
     local rx1 rx2 tx1 tx2
-    rx1=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx1=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
+    rx1=$(cat "/sys/class/net/$vpn_intf/statistics/rx_bytes" 2>/dev/null || echo 0)
+    tx1=$(cat "/sys/class/net/$vpn_intf/statistics/tx_bytes" 2>/dev/null || echo 0)
     sleep 2
-    rx2=$(cat /sys/class/net/tun0/statistics/rx_bytes 2>/dev/null || echo 0)
-    tx2=$(cat /sys/class/net/tun0/statistics/tx_bytes 2>/dev/null || echo 0)
+    rx2=$(cat "/sys/class/net/$vpn_intf/statistics/rx_bytes" 2>/dev/null || echo 0)
+    tx2=$(cat "/sys/class/net/$vpn_intf/statistics/tx_bytes" 2>/dev/null || echo 0)
     local rx_speed=$(( (rx2 - rx1) / 2048 ))
     local tx_speed=$(( (tx2 - tx1) / 2048 ))
 
@@ -274,13 +177,13 @@ cmd_status() {
 }
 
 cmd_reconnect() {
-  local mode="${1:-daemon}"
-  local country="${2:-}"
-  local fast="${3:-false}"
+  local country="${1:-}"
+  local fast="${2:-false}"
+  local protocol="${3:-auto}"
   cmd_disconnect 2>/dev/null || true
   sleep 1
   fetch_servers
-  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
+  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
   if [[ "$fast" == "true" ]]; then
     log "Sorting servers by lowest ping...${country:+ ($country)}"
   else
@@ -297,9 +200,5 @@ cmd_reconnect() {
 
   log "Best option found: ${h} (${c}) — score: $(printf "%'d" "$s")"
 
-  if [[ "$mode" == "daemon" ]]; then
-    connect_daemon "$best"
-  else
-    connect_interactive "$best"
-  fi
+  connect_tunnel "$best"
 }
