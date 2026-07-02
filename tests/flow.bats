@@ -82,7 +82,7 @@ setup() {
 @test "parse_servers rejects empty file" {
   source ./privacity 2>/dev/null || true
   local f="$XDG_DATA_HOME/servers.csv"
-  echo "" > "$f"
+  : > "$f"
   run bash -c '
     source "'"$PWD"'/privacity" 2>/dev/null
     parse_servers "'"$f"'"

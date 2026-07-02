@@ -15,22 +15,22 @@
 make hooks
 
 # Manual lint
-shellcheck -S warning -s bash privacity lib/*.sh
+shellcheck -S warning -s bash privacity lib/*.sh lib/providers/*.sh
 
 # Manual tests
 bats tests/*.bats
 
 # Syntax check
-bash -n privacity lib/*.sh
+bash -n privacity lib/*.sh lib/providers/*.sh
 ```
 
 ### Test suite
 
-24 tests across two files:
+24 tests across two files (plus 3 integration tests that require network/WireGuard):
 
 | File | Type | Area |
 |---|---|---|
-| `tests/flow.bats` | Integration | Help, status, speedtest, net.sh, speed.sh, CSV download |
+| `tests/flow.bats` | Integration | Help, status, speedtest, net.sh, speed.sh, provider fetch |
 | `tests/privacity.bats` | Unit | parse_servers, write_config, _stat_mtime, VERSION, get_external_ip |
 
 Run all tests:
@@ -66,7 +66,7 @@ bats tests/privacity.bats -f "VERSION"
 
 The pre-commit hook (`.githooks/pre-commit`) runs:
 
-1. `shellcheck -S warning privacity lib/*.sh`
+1. `shellcheck -S warning privacity lib/*.sh lib/providers/*.sh`
 2. `bats tests/*.bats`
 
 If either fails, the commit is blocked. Skip with:
@@ -79,7 +79,7 @@ git commit --no-verify
 
 GitHub Actions runs on every push and PR:
 
-- **shellcheck**: `shellcheck -S warning privacity lib/*.sh`
+- **shellcheck**: `shellcheck -S warning privacity lib/*.sh lib/providers/*.sh`
 - **bats**: `bats tests/*.bats`
 
 See `.github/workflows/test.yml`.
@@ -117,13 +117,13 @@ git push origin v1.1.0
 make hooks
 
 # Lint manual
-shellcheck -S warning -s bash privacity lib/*.sh
+shellcheck -S warning -s bash privacity lib/*.sh lib/providers/*.sh
 
 # Pruebas manuales
 bats tests/*.bats
 
 # Verificación de sintaxis
-bash -n privacity lib/*.sh
+bash -n privacity lib/*.sh lib/providers/*.sh
 ```
 
 ### Suite de pruebas
@@ -132,7 +132,7 @@ bash -n privacity lib/*.sh
 
 | Archivo | Tipo | Área |
 |---|---|---|
-| `tests/flow.bats` | Integración | Ayuda, estado, velocidad, net.sh, speed.sh, descarga CSV |
+| `tests/flow.bats` | Integración | Ayuda, estado, velocidad, net.sh, speed.sh, fetch proveedores |
 | `tests/privacity.bats` | Unitarias | parse_servers, write_config, _stat_mtime, VERSION, get_external_ip |
 
 Ejecutar todas las pruebas:
@@ -168,7 +168,7 @@ bats tests/privacity.bats -f "VERSION"
 
 El gancho pre-commit (`.githooks/pre-commit`) ejecuta:
 
-1. `shellcheck -S warning privacity lib/*.sh`
+1. `shellcheck -S warning privacity lib/*.sh lib/providers/*.sh`
 2. `bats tests/*.bats`
 
 Si alguno falla, el commit se bloquea. Omitir con:
@@ -181,7 +181,7 @@ git commit --no-verify
 
 GitHub Actions se ejecuta en cada push y PR:
 
-- **shellcheck**: `shellcheck -S warning privacity lib/*.sh`
+- **shellcheck**: `shellcheck -S warning privacity lib/*.sh lib/providers/*.sh`
 - **bats**: `bats tests/*.bats`
 
 Ver `.github/workflows/test.yml`.

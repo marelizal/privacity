@@ -53,6 +53,10 @@ for _privacity_lib in common net speed csv ovpn wg; do
 done
 unset _privacity_lib
 
+for _privacity_prov in "$LIB_DIR"/providers/*.sh; do
+  [[ -f "$_privacity_prov" ]] && source "$_privacity_prov" 2>/dev/null || true
+done
+unset _privacity_prov
 
 # ──────── Tunnel dispatcher ──────────────────────────────────────────────────
 

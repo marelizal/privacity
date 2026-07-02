@@ -16,8 +16,12 @@ lib/
   common.sh               Shared functions, paths, logging, helpers
   net.sh                  Standalone network check tool
   speed.sh                Download and upload speed test
-  csv.sh                  VPN Gate CSV download and parsing
+  csv.sh                  Server list fetch from providers, pipe-delimited parsing
   ovpn.sh                 OpenVPN lifecycle (connect, disconnect, status)
+  wg.sh                   WireGuard lifecycle (connect, disconnect, config write)
+  providers/
+    vpngate.sh            VPN Gate provider — downloads CSV → pipe format
+    vpnbook.sh            VPNBook provider — scrapes RSC payload → 40 entries
 completions/
   privacity.bash          Bash completion
   privacity.zsh           Zsh completion
@@ -25,13 +29,13 @@ completions/
 tests/
   flow.bats               Integration tests
   privacity.bats          Unit tests
-  fixtures/               Test data (CSV, OVPN configs)
+  fixtures/               Test data (pipe-delimited, OVPN configs)
 ```
 
 ### Entry point (`privacity`)
 
-1. Sources all `lib/*.sh` modules
-2. Parses global options (`-c`, `--profile`, `--log-file`, `--verbose`)
+1. Sources all `lib/*.sh` modules plus any scripts in `lib/providers/`
+2. Parses global options (`-c`, `--profile`, `--log-file`, `--verbose`, `--protocol`)
 3. Processes config file (if `CONFIG_FILE` exists)
 4. Dispatches to the appropriate `cmd_*` function
 
@@ -50,14 +54,25 @@ Provides:
 
 ### Module: `lib/csv.sh`
 
-Handles all VPN Gate server list operations:
+Orchestrates all providers and parses the unified server list:
 
 | Function | Description |
 |---|---|
-| `fetch_csv` | Download CSV from VPN Gate (HTTPS, fallback HTTP), cache with 5-minute TTL |
-| `parse_servers <file>` | Parse CSV via python3, sort by score descending, optional country filter |
-| `list_countries` | Extract unique countries from cached CSV |
-| `_cache_fresh` | Check if cached CSV is within TTL |
+| `fetch_servers` | Calls all provider `provider_*_fetch()` functions, concatenates `.db` files into `servers.csv` |
+| `parse_servers <file>` | Parse pipe-delimited format, sort by score descending, optional country filter + protocol filter |
+| `list_countries <file>` | Extract unique countries from parsed server list |
+| `_cache_fresh <file>` | Check if cached file is within TTL |
+
+### Provider scripts (`lib/providers/`)
+
+Each provider is a standalone script exposing `provider_*_fetch()`. Sourced automatically via `"$LIB_DIR"/providers/*.sh`.
+
+| Script | Provider | Entries | Protocols | Method |
+|---|---|---|---|---|
+| `vpngate.sh` | VPN Gate | ~150+ | OpenVPN | Downloads public CSV, converts to pipe format |
+| `vpnbook.sh` | VPNBook | 40 (10 servers × 4 ports) | OpenVPN + WireGuard | Scrapes Next.js RSC payload, generates configs with embedded CA/cert/key |
+
+Provider priority (`PROVIDER_<NAME>_PRIORITY`): VPN Gate = 50, VPNBook = 30 (lower = less preferred). During `fetch_servers()`, all `.db` files are concatenated; `parse_servers()` sorts by score/ping regardless of source.
 
 ### Module: `lib/ovpn.sh`
 
@@ -65,14 +80,23 @@ Manages the OpenVPN connection lifecycle:
 
 | Function | Description |
 |---|---|
-| `connect_interactive <host> <port>` | Guided connection with progress UX, live dashboard, key listener |
-| `connect_daemon <host> <port>` | Background connection, writes PID file |
-| `cmd_disconnect` | Kill OpenVPN, remove PID file, cleanup |
+| `connect_daemon <entry>` | Background connection, writes PID file |
+| `cmd_disconnect` | Kill OpenVPN (or WireGuard), remove PID/config, cleanup, restore network |
 | `cmd_status` | Show connection state, IP, ping, speed |
 | `cmd_reconnect` | Fetch new server, disconnect existing, connect |
 | `write_config <b64>` | Decode and sanitize Base64 OpenVPN config |
 | `get_external_ip` | Get public IP via multiple fallback services |
 | `check_internet` | Verify DNS + HTTP connectivity after tunnel is up |
+
+### Module: `lib/wg.sh`
+
+Manages the WireGuard connection lifecycle:
+
+| Function | Description |
+|---|---|
+| `connect_wireguard <entry>` | Decode and write WireGuard config, bring up via `wg-quick` |
+| `disconnect_wireguard` | Bring down `wg-privacity` interface |
+| `write_wg_config <b64>` | Decode Base64 WireGuard config, strip dangerous directives (PreUp/PostUp/PreDown/PostDown) |
 
 ### Module: `lib/net.sh`
 
@@ -97,7 +121,7 @@ Standalone speed test tool:
 
 ### Config sanitization
 
-`write_config()` in `ovpn.sh` strips these dangerous OpenVPN directives:
+`write_config()` in `ovpn.sh` strips these dangerous OpenVPN directives; `write_wg_config()` in `wg.sh` strips PreUp/PostUp/PreDown/PostDown:
 
 - `script-security`
 - `up`, `down` (and all `up-*` / `down-*` variants)
@@ -114,11 +138,15 @@ main()
   ├─ load_config()
   ├─ parse CLI options
   └─ dispatch command
-       ├─ interactive: fetch → parse → display top 3 → confirm → connect → check → speed → dashboard
-       ├─ daemon:      fetch → parse → pick best → connect → check → speed → exit
-       ├─ disconnect:  kill OpenVPN → cleanup files
-       ├─ status:      read PID → check tun → show info
+       ├─ daemon:       fetch (all providers) → parse (pipe format) → pick best → connect_tunnel (wg|ovpn) → check → speed → exit
+       ├─ disconnect:   kill OpenVPN / bring down WG → cleanup files
+       ├─ status:       read PID/tun/wg → show info
        └─ ...
+
+connect_tunnel(entry)
+  ├─ protocol=wg   → connect_wireguard (write_wg_config → wg-quick up)
+  ├─ protocol=ovpn → connect_daemon (write_config → openvpn --daemon)
+  └─ unknown       → die
 ```
 
 See [flow.md](flow.md) for a visual diagram.
@@ -135,8 +163,12 @@ lib/
   common.sh               Funciones compartidas, rutas, logging, ayudantes
   net.sh                  Herramienta independiente de verificación de red
   speed.sh                Prueba de velocidad de descarga y subida
-  csv.sh                  Descarga y análisis de CSV de VPN Gate
+  csv.sh                  Obtención de lista de servidores de proveedores, análisis pipe-delimited
   ovpn.sh                 Ciclo de vida de OpenVPN (conectar, desconectar, estado)
+  wg.sh                   Ciclo de vida de WireGuard (conectar, desconectar, escribir config)
+  providers/
+    vpngate.sh            Proveedor VPN Gate — descarga CSV → formato pipe
+    vpnbook.sh            Proveedor VPNBook — extrae RSC → 40 entradas
 completions/
   privacity.bash          Completado para Bash
   privacity.zsh           Completado para Zsh
@@ -144,13 +176,13 @@ completions/
 tests/
   flow.bats               Pruebas de integración
   privacity.bats          Pruebas unitarias
-  fixtures/               Datos de prueba (CSV, configuraciones OVPN)
+  fixtures/               Datos de prueba (pipe-delimited, configs OVPN)
 ```
 
 ### Punto de entrada (`privacity`)
 
-1. Carga todos los módulos `lib/*.sh`
-2. Analiza opciones globales (`-c`, `--profile`, `--log-file`, `--verbose`)
+1. Carga todos los módulos `lib/*.sh` más los scripts en `lib/providers/`
+2. Analiza opciones globales (`-c`, `--profile`, `--log-file`, `--verbose`, `--protocol`)
 3. Procesa el archivo de configuración (si `CONFIG_FILE` existe)
 4. Despacha a la función `cmd_*` correspondiente
 
@@ -169,14 +201,25 @@ Proporciona:
 
 ### Módulo: `lib/csv.sh`
 
-Maneja todas las operaciones de la lista de servidores de VPN Gate:
+Orquesta todos los proveedores y analiza la lista de servidores unificada:
 
 | Función | Descripción |
 |---|---|
-| `fetch_csv` | Descargar CSV desde VPN Gate (HTTPS, fallback HTTP), cachear con TTL de 5 minutos |
-| `parse_servers <archivo>` | Analizar CSV vía python3, ordenar por puntuación descendente, filtro opcional por país |
-| `list_countries` | Extraer países únicos del CSV cacheado |
-| `_cache_fresh` | Verificar si el CSV cacheado está dentro del TTL |
+| `fetch_servers` | Llama a todas las funciones `provider_*_fetch()`, concatena archivos `.db` en `servers.csv` |
+| `parse_servers <archivo>` | Analiza formato pipe-delimited, ordena por puntuación, filtro opcional por país + protocolo |
+| `list_countries <archivo>` | Extraer países únicos de la lista de servidores analizada |
+| `_cache_fresh <archivo>` | Verificar si el archivo cacheado está dentro del TTL |
+
+### Scripts de proveedores (`lib/providers/`)
+
+Cada proveedor es un script independiente que expone `provider_*_fetch()`. Se carga automáticamente vía `"$LIB_DIR"/providers/*.sh`.
+
+| Script | Proveedor | Entradas | Protocolos | Método |
+|---|---|---|---|---|
+| `vpngate.sh` | VPN Gate | ~150+ | OpenVPN | Descarga CSV público, convierte a formato pipe |
+| `vpnbook.sh` | VPNBook | 40 (10 servidores × 4 puertos) | OpenVPN + WireGuard | Extrae RSC de Next.js, genera configs con CA/cert/key embebidos |
+
+Prioridad de proveedor (`PROVIDER_<NAME>_PRIORITY`): VPN Gate = 50, VPNBook = 30 (menor = menos preferido). Durante `fetch_servers()`, todos los `.db` se concatenan; `parse_servers()` ordena por score/ping sin importar la fuente.
 
 ### Módulo: `lib/ovpn.sh`
 
@@ -184,14 +227,23 @@ Gestiona el ciclo de vida de la conexión OpenVPN:
 
 | Función | Descripción |
 |---|---|
-| `connect_interactive <host> <puerto>` | Conexión guiada con progreso, panel en vivo, listener de teclas |
-| `connect_daemon <host> <puerto>` | Conexión en segundo plano, escribe archivo PID |
-| `cmd_disconnect` | Matar OpenVPN, eliminar archivo PID, limpiar |
+| `connect_daemon <entrada>` | Conexión en segundo plano, escribe archivo PID |
+| `cmd_disconnect` | Matar OpenVPN (o WireGuard), eliminar PID/config, limpiar, restaurar red |
 | `cmd_status` | Mostrar estado de conexión, IP, ping, velocidad |
 | `cmd_reconnect` | Obtener nuevo servidor, desconectar existente, conectar |
 | `write_config <b64>` | Decodificar y sanitizar configuración OpenVPN en Base64 |
 | `get_external_ip` | Obtener IP pública mediante múltiples servicios alternativos |
 | `check_internet` | Verificar conectividad DNS + HTTP después de que el túnel esté activo |
+
+### Módulo: `lib/wg.sh`
+
+Gestiona el ciclo de vida de la conexión WireGuard:
+
+| Función | Descripción |
+|---|---|
+| `connect_wireguard <entrada>` | Decodificar y escribir configuración WireGuard, activar vía `wg-quick` |
+| `disconnect_wireguard` | Desactivar interfaz `wg-privacity` |
+| `write_wg_config <b64>` | Decodificar configuración WireGuard Base64, eliminar directivas peligrosas (PreUp/PostUp/PreDown/PostDown) |
 
 ### Módulo: `lib/net.sh`
 
@@ -216,7 +268,7 @@ Herramienta independiente de prueba de velocidad:
 
 ### Sanitización de configuración
 
-`write_config()` en `ovpn.sh` elimina estas directivas peligrosas de OpenVPN:
+`write_config()` en `ovpn.sh` elimina estas directivas peligrosas; `write_wg_config()` en `wg.sh` elimina PreUp/PostUp/PreDown/PostDown:
 
 - `script-security`
 - `up`, `down` (y todas las variantes `up-*` / `down-*`)
@@ -233,11 +285,15 @@ main()
   ├─ load_config()
   ├─ analizar opciones CLI
   └─ despachar comando
-       ├─ interactivo: descargar → analizar → mostrar top 3 → confirmar → conectar → verificar → velocidad → panel
-       ├─ daemon:      descargar → analizar → elegir mejor → conectar → verificar → velocidad → salir
-       ├─ disconnect:  matar OpenVPN → limpiar archivos
-       ├─ status:      leer PID → verificar tun → mostrar info
+       ├─ daemon:       fetch (todos los proveedores) → parse (formato pipe) → elegir mejor → connect_tunnel (wg|ovpn) → check → speed → exit
+       ├─ disconnect:   matar OpenVPN / bajar WG → limpiar archivos
+       ├─ status:       leer PID/tun/wg → mostrar info
        └─ ...
+
+connect_tunnel(entry)
+  ├─ protocol=wg   → connect_wireguard (write_wg_config → wg-quick up)
+  ├─ protocol=ovpn → connect_daemon (write_config → openvpn --daemon)
+  └─ unknown       → die
 ```
 
 Ver [flow.md](flow.md) para un diagrama visual.

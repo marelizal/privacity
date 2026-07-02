@@ -16,9 +16,8 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [[ "$output" == *"Server list not found"* ]]
 }
 
-@test "parse_servers rejects file with less than 3 lines" {
-  echo "line1" > "$CSV"
-  echo "line2" >> "$CSV"
+@test "parse_servers rejects empty file" {
+  : > "$CSV"
   run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"too short"* ]]
@@ -39,6 +38,14 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"Korea, Republic of"* ]]
+}
+
+@test "parse_servers outputs protocol in field 6" {
+  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'" | head -1'
+  [ "$status" -eq 0 ]
+  proto=$(echo "$output" | cut -d'|' -f6)
+  [[ "$proto" == "ovpn" ]]
 }
 
 @test "parse_servers outputs ping in field 5" {
@@ -121,20 +128,6 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
     _cache_fresh "'"$CSV"'"
   '
   [ "$status" -eq 0 ]
-}
-
-# ──────── show_top ──────────────────────────────────────────────────────────
-
-@test "show_top displays top servers with ping" {
-  cp "${BATS_TEST_DIRNAME}/fixtures/servers.csv" "$CSV"
-  run bash -c '
-    source "'"$PRIVACITY"'" 2>/dev/null
-    mapfile -t servers < <(parse_servers "'"$CSV"'")
-    show_top "${servers[@]}"
-  '
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Japan"* ]]
-  [[ "$output" == *"ms"* ]]
 }
 
 # ──────── write_config ─────────────────────────────────────────────────────

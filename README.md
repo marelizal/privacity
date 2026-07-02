@@ -12,21 +12,23 @@
 
 ## English
 
-CLI tool that fetches the fastest public [VPN Gate](https://www.vpngate.net/) servers and connects via OpenVPN.
+CLI tool that finds the fastest public VPN servers from multiple providers (**VPN Gate**, **VPNBook**) and connects via **OpenVPN** or **WireGuard**.
 
 ### Features
 
 - 🔒 Sanitizes OpenVPN configs (strips `script-security`, `up`, `down`, `persist-key`, etc.)
+- 🔀 Multi-provider: VPN Gate + VPNBook, unified server list
+- 📡 WireGuard support (wg-quick) + OpenVPN
+- ⚡ Auto-protocol selection or manual `--protocol ovpn|wg|auto`
 - 🌐 Internet health check after connect (DNS + HTTP)
 - ⚡ Download + upload speed test
 - 🔔 Desktop notifications on connect/disconnect/fail
 - 🗂️ Multi-profile: `privacity --profile work daemon`
 - 📝 Log to file with `--log-file <path>` + `--verbose` timestamps
-- 🌍 Country filter: `privacity -c Japan daemon`
-- ⚙️ Config file: `~/.config/privacity/config` (country, mode, fast)
+- 🌍 Country filter: `privacity -c Japan`
+- ⚙️ Config file: `~/.config/privacity/config` (country, mode, fast, protocol)
 - ⚡ Low-latency sort: `privacity --fast` (sort by ping instead of score)
-- 📋 List countries: `privacity countries`
-- 🚦 Smart country hints when name is wrong or missing
+- 📋 List countries: `privacity --countries`
 - 💤 Systemd persist: `privacity daemon --persist`
 - 🧪 bats tests — `shellcheck` clean
 
@@ -46,21 +48,23 @@ privacity
 
 ## Español
 
-Herramienta CLI que obtiene los servidores públicos más rápidos de [VPN Gate](https://www.vpngate.net/) y se conecta vía OpenVPN.
+Herramienta CLI que obtiene los servidores públicos más rápidos de múltiples proveedores (**VPN Gate**, **VPNBook**) y se conecta vía **OpenVPN** o **WireGuard**.
 
 ### Características
 
 - 🔒 Sanitiza configuraciones OpenVPN (elimina `script-security`, `up`, `down`, `persist-key`, etc.)
+- 🔀 Multi-proveedor: VPN Gate + VPNBook, lista unificada de servidores
+- 📡 Soporte WireGuard (wg-quick) + OpenVPN
+- ⚡ Selección automática de protocolo o manual con `--protocol ovpn|wg|auto`
 - 🌐 Verifica conectividad a Internet después de conectar (DNS + HTTP)
 - ⚡ Prueba de velocidad de descarga y subida
 - 🔔 Notificaciones de escritorio al conectar/desconectar/fallar
 - 🗂️ Multi-perfil: `privacity --profile trabajo daemon`
 - 📝 Log a archivo con `--log-file <ruta>` + marcas de tiempo con `--verbose`
-- 🌍 Filtro por país: `privacity -c Japon daemon`
-- ⚙️ Archivo de configuración: `~/.config/privacity/config` (país, modo, fast)
+- 🌍 Filtro por país: `privacity -c Japon`
+- ⚙️ Archivo de configuración: `~/.config/privacity/config` (país, modo, fast, protocol)
 - ⚡ Orden por latencia: `privacity --fast` (ordena por ping en vez de puntuación)
-- 📋 Listar países: `privacity countries`
-- 🚦 Sugerencias de país cuando el nombre es incorrecto
+- 📋 Listar países: `privacity --countries`
 - 💤 Persistencia systemd: `privacity daemon --persist`
 - 🧪 pruebas bats — `shellcheck` limpio
 

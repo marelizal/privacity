@@ -30,8 +30,9 @@ Blank lines and lines starting with `#` are ignored.
 | Key | Values | Description |
 |---|---|---|
 | `country` | Any VPN Gate country name | Default country filter |
-| `mode` | `daemon` or `interactive` | Default command when none given |
+| `mode` | `daemon` | Default command when none given |
 | `fast` | `true` or `false` | Sort servers by lowest ping instead of score |
+| `protocol` | `ovpn`, `wg`, or `auto` | Default VPN protocol |
 
 ### Precedence
 
@@ -73,6 +74,7 @@ Profiles are independent — changing one does not affect the other. If a profil
   privacity.pid       PID of background OpenVPN process
   last_host           Last connected server hostname + country
   openvpn.log         OpenVPN daemon log
+  wireguard.conf       WireGuard config (if previously connected via WG)
 
 ~/.local/share/privacity/work/
   ...same structure as above, but for the "work" profile
@@ -118,8 +120,9 @@ Las líneas en blanco y las que comienzan con `#` se ignoran.
 | Clave | Valores | Descripción |
 |---|---|---|
 | `country` | Cualquier país de VPN Gate | Filtro de país predeterminado |
-| `mode` | `daemon` o `interactive` | Comando predeterminado cuando no se especifica ninguno |
+| `mode` | `daemon` | Comando predeterminado cuando no se especifica ninguno |
 | `fast` | `true` o `false` | Ordenar servidores por ping más bajo en vez de puntuación |
+| `protocol` | `ovpn`, `wg` o `auto` | Protocolo VPN predeterminado |
 
 ### Prioridad
 
@@ -161,6 +164,7 @@ Los perfiles son independientes — cambiar uno no afecta al otro. Si el archivo
   privacity.pid       PID del proceso OpenVPN en segundo plano
   last_host           Último servidor conectado + país
   openvpn.log         Bitácora del daemon OpenVPN
+  wireguard.conf       Configuración WireGuard (si se conectó vía WG)
 
 ~/.local/share/privacity/trabajo/
   ...misma estructura que arriba, pero para el perfil "trabajo"

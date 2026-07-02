@@ -22,24 +22,22 @@ Global options must come **before** the command.
 |---|---|---|
 | `-c`, `--country <name>` | Filter servers by country (e.g. `Japan`, `US`, `Korea, Republic of`) |
 | `--fast` | Sort servers by lowest ping (ms) instead of highest score |
+| `--protocol <type>` | Force VPN protocol: `ovpn`, `wg`, or `auto` (default) |
+| `--countries` | Show all available countries (also via `privacity countries`) |
 | `--profile <name>` | Isolated profile (separate config + data dirs) |
 | `--log-file <path>` | Write all output to a file (tee) |
 | `--verbose` | Show timestamps in output |
 
 ### Commands
 
-#### `privacity` (interactive, default)
+#### `privacity` (daemon, default)
 
-Guided mode. Shows the top 3 servers, asks for confirmation, connects, and displays a live dashboard with speed, IP, and ping.
-
-Controls during connection:
-- **Q** — Disconnect and exit
-- **S** — Disconnect and switch to the next best server
+Connect to the best available server in background. Supports protocol auto-detection.
 
 ```
 privacity
 privacity -c Japan
-privacity --fast
+privacity --protocol wg
 privacity -c Japan --fast
 ```
 
@@ -49,6 +47,7 @@ Show all available countries and their codes from the cached server list.
 
 ```
 privacity countries
+privacity --countries
 ```
 
 If the server list hasn't been downloaded yet, it fetches it first. Useful before using `-c`.
@@ -181,6 +180,22 @@ privacity -c France reconnect
 
 Country matching is case-insensitive and supports partial matches.
 
+### Protocol selection
+
+The `--protocol` flag controls which VPN protocol to use:
+
+| Value | Behavior |
+|---|---|
+| `auto` (default) | Uses whatever protocol the server provides (openvpn or wireguard) |
+| `ovpn` | Only show OpenVPN servers |
+| `wg` | Only show WireGuard servers |
+
+```
+privacity --protocol wg
+privacity --protocol ovpn -c Japan
+privacity --fast --protocol auto
+```
+
 ---
 
 ## Español
@@ -199,24 +214,22 @@ Las opciones globales deben ir **antes** del comando.
 |---|---|---|
 | `-c`, `--country <nombre>` | Filtrar servidores por país (ej. `Japan`, `US`, `Korea, Republic of`) |
 | `--fast` | Ordenar servidores por ping más bajo (ms) en vez de puntuación |
+| `--protocol <tipo>` | Forzar protocolo VPN: `ovpn`, `wg` o `auto` (predeterminado) |
+| `--countries` | Mostrar todos los países disponibles (también vía `privacity countries`) |
 | `--profile <nombre>` | Perfil aislado (configuración + datos separados) |
 | `--log-file <ruta>` | Escribir toda la salida a un archivo (tee) |
 | `--verbose` | Mostrar marcas de tiempo en la salida |
 
 ### Comandos
 
-#### `privacity` (interactivo, predeterminado)
+#### `privacity` (daemon, predeterminado)
 
-Modo guiado. Muestra los 3 mejores servidores, pide confirmación, conecta y muestra un panel en vivo con velocidad, IP y ping.
-
-Controles durante la conexión:
-- **Q** — Desconectar y salir
-- **S** — Desconectar y cambiar al siguiente mejor servidor
+Conecta al mejor servidor disponible en segundo plano. Soporta detección automática de protocolo.
 
 ```
 privacity
 privacity -c Japan
-privacity --fast
+privacity --protocol wg
 privacity -c Japan --fast
 ```
 
@@ -226,6 +239,7 @@ Muestra todos los países disponibles y sus códigos de la lista de servidores c
 
 ```
 privacity countries
+privacity --countries
 ```
 
 #### `daemon`
@@ -355,3 +369,19 @@ privacity -c France reconnect
 ```
 
 La coincidencia no distingue mayúsculas y admite coincidencias parciales.
+
+### Selección de protocolo
+
+La bandera `--protocol` controla qué protocolo VPN usar:
+
+| Valor | Comportamiento |
+|---|---|
+| `auto` (predeterminado) | Usa el protocolo que provea el servidor (openvpn o wireguard) |
+| `ovpn` | Solo mostrar servidores OpenVPN |
+| `wg` | Solo mostrar servidores WireGuard |
+
+```
+privacity --protocol wg
+privacity --protocol ovpn -c Japan
+privacity --fast --protocol auto
+```
