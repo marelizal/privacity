@@ -68,6 +68,7 @@ main() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  # shellcheck disable=SC1091
   source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.sh"
   main "$@"
 fi

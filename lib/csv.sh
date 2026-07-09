@@ -8,10 +8,10 @@ fetch_servers() {
   mkdir -p "$DIR/providers"
   chmod 700 "$DIR" 2>/dev/null || true
 
-  local ok=false err
+  local err=""
   for prov in "${PROVIDERS[@]}"; do
     if type "provider_${prov}_fetch" &>/dev/null 2>&1; then
-      "provider_${prov}_fetch" && ok=true || err="$err $prov"
+      "provider_${prov}_fetch" || err="${err} ${prov}"
     fi
   done
 
@@ -107,7 +107,7 @@ for line in sys.stdin:
 _cache_fresh() {
   local file="$1"
   local ttl="${2:-300}"
-  [[ -f "$file" ]] || return 1
+  [[ -s "$file" ]] || return 1
   local now mtime
   now=$(date +%s)
   mtime=$(_stat_mtime "$file")

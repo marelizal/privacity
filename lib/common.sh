@@ -42,12 +42,12 @@ else
   CYAN=""; WHITE=""; NC=""
 fi
 
-_ts()    { [[ "$VERBOSE" == "true" ]] && printf "[%s] " "$(date '+%H:%M:%S')" || true; }
-log()    { _ts; printf "  ${BOLD}${GREEN}✓${NC} %s\n" "$*"; }
-warn()   { _ts; printf "  ${BOLD}${YELLOW}[!]${NC} %s\n" "$*"; }
-error()  { _ts; printf "  ${BOLD}${RED}[x]${NC} %s\n" "$*" >&2; }
-info()   { _ts; printf "  ${CYAN}%s${NC}\n" "$*"; }
-dim()    { printf "${DIM}%s${NC}\n" "$*"; }
+_ts()    { [[ "$VERBOSE" == "true" ]] && printf "[%s] " "$(date '+%H:%M:%S')" >&2 || true; }
+log()    { _ts; printf "  %s%s✓%s %s\n" "${BOLD}" "${GREEN}" "${NC}" "$*" >&2; }
+warn()   { _ts; printf "  %s%s[!]%s %s\n" "${BOLD}" "${YELLOW}" "${NC}" "$*" >&2; }
+error()  { _ts; printf "  %s%s[x]%s %s\n" "${BOLD}" "${RED}" "${NC}" "$*" >&2; }
+info()   { _ts; printf "  %s%s%s\n" "${CYAN}" "$*" "${NC}" >&2; }
+dim()    { printf "%s%s%s\n" "${DIM}" "$*" "${NC}" >&2; }
 die()    { error "$1"; exit 1; }
 
 run_with_spinner() {
@@ -59,16 +59,16 @@ run_with_spinner() {
   local pid=$!
   local start=$SECONDS
 
-  local spin=('-' '\\' '|' '/')
+  local spin=('-' "\\" '|' '/')
   local i=0
   while kill -0 "$pid" 2>/dev/null; do
     if (( SECONDS - start > hard_timeout )); then
       kill "$pid" 2>/dev/null || true
       wait "$pid" 2>/dev/null || true
-      printf "\r  ${RED}x${NC} %s\n" "$msg"
+      printf "\r  %sx%s %s\n" "${RED}" "${NC}" "$msg" >&2
       return 1
     fi
-    printf "\r  ${YELLOW}${spin[$i]}${NC} %s" "$msg"
+    printf "\r  %s%s%s %s" "${YELLOW}" "${spin[$i]}" "${NC}" "$msg" >&2
     i=$(( (i + 1) % 4 ))
     sleep 0.25
   done
@@ -77,9 +77,9 @@ run_with_spinner() {
   local rc=$?
 
   if [[ $rc -eq 0 ]]; then
-    printf "\r  ${GREEN}✓${NC} %s\n" "$msg"
+    printf "\r  %s✓%s %s\n" "${GREEN}" "${NC}" "$msg" >&2
   else
-    printf "\r  ${RED}x${NC} %s\n" "$msg"
+    printf "\r  %sx%s %s\n" "${RED}" "${NC}" "$msg" >&2
   fi
 
   return $rc
@@ -107,7 +107,7 @@ check_deps() {
         wg-quick)  pkg="wireguard-tools" ;;
       esac
       warn "$dep is not installed."
-      printf "  ${YELLOW}${BOLD}[?]${NC} Install ${pkg}? ${DIM}[Y/n]${NC} "
+      printf "  %s[?]%s Install %s? %s[Y/n]%s " "${YELLOW}${BOLD}" "${NC}" "$pkg" "${DIM}" "${NC}"
       read -r yn
       if [[ "${yn,,}" != "n" ]]; then
         log "Installing ${pkg}..."

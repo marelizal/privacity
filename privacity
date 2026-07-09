@@ -54,6 +54,7 @@ done
 unset _privacity_lib
 
 for _privacity_prov in "$LIB_DIR"/providers/*.sh; do
+  # shellcheck disable=SC1090
   [[ -f "$_privacity_prov" ]] && source "$_privacity_prov" 2>/dev/null || true
 done
 unset _privacity_prov
@@ -80,6 +81,7 @@ cmd_update() {
   tmpdir=$(mktemp -d) || die "Failed to create temp directory."
   trap 'rm -rf "${tmpdir:-}"' RETURN
 
+  # shellcheck disable=SC2329
   _do_clone() { git clone --depth=1 -q "$REPO_URL" "$tmpdir" >/dev/null 2>&1; }
   run_with_spinner \
     "Downloading latest version..." \
@@ -89,6 +91,7 @@ cmd_update() {
 
   cd "$tmpdir"
 
+  # shellcheck disable=SC2329
   _do_install() { _sudo make install && _sudo make completions; }
   run_with_spinner "Installing..." _do_install >/dev/null 2>&1 \
     || warn "Install failed. Run ${BOLD}sudo privacity update${NC} manually."
@@ -102,46 +105,49 @@ cmd_update() {
 # ──────── Help ──────────────────────────────────────────────────────────────
 
 cmd_help() {
-  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}\n"
-  printf "  ${BOLD}USAGE${NC}\n"
-  printf "    privacity ${DIM}[options] [command]${NC}\n"
-  printf "\n"
-  printf "  ${BOLD}OPTIONS${NC}\n"
-  printf "    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)\n"
-  printf "    ${GREEN}--countries${NC}       Show all available countries\n"
-  printf "    ${GREEN}--fast${NC}            Sort servers by lowest ping (ms)\n"
-  printf "    ${GREEN}--protocol <type>${NC}  Force protocol: ovpn, wg, auto (default)\n"
-  printf "    ${GREEN}--log-file <path>${NC}  Write output to log file\n"
-  printf "    ${GREEN}--profile <name>${NC}   Use isolated profile (config + data)\n"
-  printf "    ${GREEN}--verbose${NC}          Show timestamps and detailed output\n"
-  printf "\n"
-  printf "  ${BOLD}COMMANDS${NC}\n"
-  printf "    ${GREEN}privacity${NC}          Daemon mode — connect in background (default)\n"
-  printf "    ${GREEN}privacity --countries${NC}  Show all available countries\n"
-  printf "    ${GREEN}privacity countries${NC}   Show all available countries\n"
-  printf "    ${GREEN}privacity daemon${NC}     Connect in background – no terminal needed\n"
-  printf "    ${GREEN}privacity daemon --persist${NC}  Install systemd user service\n"
-  printf "    ${GREEN}privacity daemon --unpersist${NC}  Remove systemd user service\n"
-  printf "    ${GREEN}privacity list${NC}    Show top servers and available countries\n"
-  printf "    ${GREEN}privacity disconnect${NC}  Tear down the current VPN\n"
-  printf "    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect\n"
-  printf "    ${GREEN}privacity status${NC}      Show connection details and live speed\n"
-  printf "    ${GREEN}privacity speedtest${NC}   Measure download & upload speed\n"
-  printf "    ${GREEN}privacity update${NC}      Pull latest version and reinstall\n"
-  printf "    ${GREEN}privacity help${NC}        Show this message\n"
-  printf "\n"
-  printf "  ${BOLD}EXAMPLES${NC}\n"
-  printf "    privacity                           Connect to best server (daemon)\n"
-  printf "  ${DIM}privacity --countries${NC}               Show available countries\n"
-  printf "  ${DIM}privacity -c Japan${NC}                  Connect to Japan\n"
-  printf "  ${DIM}privacity -c US --fast${NC}              Fastest ping to US\n"
-  printf "  ${DIM}privacity -c Korea list${NC}             List Korean servers\n"
-  printf "    ${DIM}privacity daemon --persist${NC}        Auto-connect on login\n"
-  printf "\n"
-  printf "  ${BOLD}INSTALL${NC}\n"
-  printf "    sudo make install\n"
-  printf "    sudo make completions\n"
-  printf "\n"
+  cat <<EOF
+
+  \${BOLD}\${WHITE}Privacity\${NC} \${DIM}v\${VERSION}\${NC} \${WHITE}—\${NC} \${DIM}VPN Gate Client\${NC}
+  \${BOLD}USAGE\${NC}
+    privacity \${DIM}[options] [command]\${NC}
+
+  \${BOLD}OPTIONS\${NC}
+    \${GREEN}-c, --country\${NC}     Filter servers by country (name or code)
+    \${GREEN}--countries\${NC}       Show all available countries
+    \${GREEN}--fast\${NC}            Sort servers by lowest ping (ms)
+    \${GREEN}--protocol <type>\${NC}  Force protocol: ovpn, wg, auto (default)
+    \${GREEN}--log-file <path>\${NC}  Write output to log file
+    \${GREEN}--profile <name>\${NC}   Use isolated profile (config + data)
+    \${GREEN}--verbose\${NC}          Show timestamps and detailed output
+
+  \${BOLD}COMMANDS\${NC}
+    \${GREEN}privacity\${NC}          Daemon mode — connect in background (default)
+    \${GREEN}privacity --countries\${NC}  Show all available countries
+    \${GREEN}privacity countries\${NC}   Show all available countries
+    \${GREEN}privacity daemon\${NC}     Connect in background – no terminal needed
+    \${GREEN}privacity daemon --persist\${NC}  Install systemd user service
+    \${GREEN}privacity daemon --unpersist\${NC}  Remove systemd user service
+    \${GREEN}privacity list\${NC}    Show top servers and available countries
+    \${GREEN}privacity disconnect\${NC}  Tear down the current VPN
+    \${GREEN}privacity reconnect\${NC}   Pick a new server and reconnect
+    \${GREEN}privacity status\${NC}      Show connection details and live speed
+    \${GREEN}privacity speedtest\${NC}   Measure download & upload speed
+    \${GREEN}privacity update\${NC}      Pull latest version and reinstall
+    \${GREEN}privacity help\${NC}        Show this message
+
+  \${BOLD}EXAMPLES\${NC}
+    privacity                           Connect to best server (daemon)
+  \${DIM}privacity --countries\${NC}               Show available countries
+  \${DIM}privacity -c Japan\${NC}                  Connect to Japan
+  \${DIM}privacity -c US --fast\${NC}              Fastest ping to US
+  \${DIM}privacity -c Korea list\${NC}             List Korean servers
+    \${DIM}privacity daemon --persist\${NC}        Auto-connect on login
+
+  \${BOLD}INSTALL\${NC}
+    sudo make install
+    sudo make completions
+
+EOF
 }
 
 # ──────── Speedtest command ──────────────────────────────────────────────────
@@ -166,9 +172,9 @@ cmd_countries() {
   local countries
   countries=$(list_countries "$CSV" 2>/dev/null) || die "No server list available."
 
-  printf "\n  ${BOLD}${WHITE}Available countries${NC}\n\n"
+  printf "\n  %sAvailable countries%s\n\n" "${BOLD}${WHITE}" "${NC}"
   echo "$countries" | while IFS= read -r line; do
-    printf "  ${GREEN}●${NC} %s\n" "$line"
+    printf "  %s●%s %s\n" "${GREEN}" "${NC}" "$line"
   done
   printf "\n"
   info "Use ${BOLD}privacity -c <name>${NC} to filter by country"
@@ -178,6 +184,7 @@ cmd_countries() {
 
 _no_servers_hint() {
   local country="$1"
+  # shellcheck disable=SC2016
   error "No servers found${country:+ for '$country'}"
   if [[ -n "$country" ]] && _cache_fresh "$CSV" 2>/dev/null; then
     local countries
@@ -188,6 +195,7 @@ _no_servers_hint() {
       info "Did you mean: ${BOLD}$match${NC}?"
     else
       warn "Available countries:"
+      # shellcheck disable=SC2001
       echo "$countries" | sed 's/^/  /'
     fi
   fi
@@ -209,11 +217,11 @@ cmd_list() {
   mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
   ((${#servers[@]})) || die "No servers found${country:+ for $country}."
 
-  printf "\n  ${BOLD}${WHITE}Servers${NC}"
-  [[ -n "$country" ]] && printf " ${DIM}($country)${NC}"
+  printf "\n  %sServers%s" "${BOLD}${WHITE}" "${NC}"
+  [[ -n "$country" ]] && printf " %s(%s)%s" "${DIM}" "$country" "${NC}"
   printf "\n\n"
-  printf "  ${DIM}%-4s %-20s  %-30s  %8s  %6s${NC}\n" "  #" "Country" "Hostname" "Score" "Ping"
-  printf "  ${DIM}%s${NC}\n" "  -----------------------------------------------------------"
+  printf "  %s%-4s %-20s  %-30s  %8s  %6s%s\n" "${DIM}" "  #" "Country" "Hostname" "Score" "Ping" "${NC}"
+  printf "  %s%s%s\n" "${DIM}" "  -----------------------------------------------------------" "${NC}"
 
   local count=${#servers[@]}
   local max_show=20
@@ -232,7 +240,7 @@ cmd_list() {
     else
       ping_disp="${RED}${p}ms${NC}"
     fi
-    printf "  %2d)  %-20s  %-30s  ${YELLOW}%'8d${NC}  %b\n" $((i+1)) "$c" "$h" "$s" "$ping_disp"
+    printf "  %2d)  %-20s  %-30s  %s%'8d%s  %b\n" $((i+1)) "$c" "$h" "${YELLOW}" "$s" "${NC}" "$ping_disp"
   done
 
   if [[ -z "$country" ]]; then
@@ -364,4 +372,5 @@ main() {
       ;;
   esac
 }
+# shellcheck disable=SC2317
 return 0 2>/dev/null || main "$@"

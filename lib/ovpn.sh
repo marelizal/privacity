@@ -75,8 +75,7 @@ connect_daemon() {
 }
 
 _cleanup_tunnel() {
-  local i
-  for i in $(seq 1 10); do
+  for _ in $(seq 1 10); do
     ip link show tun0 &>/dev/null || return 0
     sleep 0.5
   done
@@ -146,18 +145,18 @@ cmd_status() {
   ip link show tun0 &>/dev/null 2>&1 && vpn_intf="tun0"
   ip link show "$WG_INTERFACE" &>/dev/null 2>&1 && vpn_intf="$WG_INTERFACE"
 
-  printf "\n  ${BOLD}${WHITE}Privacity${NC} ${DIM}status${NC}\n"
+  printf "\n  %sPrivacity%s %sstatus%s\n" "${BOLD}${WHITE}" "${NC}" "${DIM}" "${NC}"
 
   if [[ -n "$vpn_intf" ]]; then
-    printf "  ${BOLD}%-14s${NC} ${GREEN}Connected${NC}\n" "Status"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Server" "${hostname:---}"
-    printf "  ${BOLD}%-14s${NC} %s\n" "Country" "${country_long:---}"
+    printf "  %s%-14s%s %sConnected%s\n" "${BOLD}" "Status" "${NC}" "${GREEN}" "${NC}"
+    printf "  %s%-14s%s %s\n" "${BOLD}" "Server" "${NC}" "${hostname:---}"
+    printf "  %s%-14s%s %s\n" "${BOLD}" "Country" "${NC}" "${country_long:---}"
 
     local ext_ip ping_ms
     ext_ip=$(get_external_ip)
     ping_ms=$(get_ping)
-    printf "  ${BOLD}%-14s${NC} %s\n" "External IP" "$ext_ip"
-    printf "  ${BOLD}%-14s${NC} %s ms\n" "Ping" "$ping_ms"
+    printf "  %s%-14s%s %s\n" "${BOLD}" "External IP" "${NC}" "$ext_ip"
+    printf "  %s%-14s%s %s ms\n" "${BOLD}" "Ping" "${NC}" "$ping_ms"
 
     local rx1 rx2 tx1 tx2
     rx1=$(cat "/sys/class/net/$vpn_intf/statistics/rx_bytes" 2>/dev/null || echo 0)
@@ -168,9 +167,9 @@ cmd_status() {
     local rx_speed=$(( (rx2 - rx1) / 2048 ))
     local tx_speed=$(( (tx2 - tx1) / 2048 ))
 
-    printf "  ${BOLD}%-14s${NC} ↓ %d KB/s  ↑ %d KB/s\n" "Speed" "$rx_speed" "$tx_speed"
+    printf "  %s%-14s%s ↓ %d KB/s  ↑ %d KB/s\n" "${BOLD}" "Speed" "${NC}" "$rx_speed" "$tx_speed"
   else
-    printf "  ${BOLD}%-14s${NC} ${RED}Disconnected${NC}\n" "Status"
+    printf "  %s%-14s%s %sDisconnected%s\n" "${BOLD}" "Status" "${NC}" "${RED}" "${NC}"
   fi
 
   printf "\n"
