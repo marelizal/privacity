@@ -245,10 +245,9 @@ cmd_list() {
 
   if [[ -z "$country" ]]; then
     printf "\n"
-    log "Available countries:"
-    local countries
-    countries=$(list_countries "$CSV" 2>/dev/null)
-    echo "$countries" | tr '\n' ' ' | fold -s -w 70 | sed 's/^/  /'
+    info "Available countries:"
+    echo $(list_countries "$CSV" 2>/dev/null) | fold -s -w 70 | sed 's/^/  /'
+    printf "\n"
   fi
 
 }
