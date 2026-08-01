@@ -39,16 +39,32 @@ read_host() {
 
 connect_daemon() {
   local entry="$1"
-  local hostname country_long base64_data
+  local hostname country_long base64_data provider auth
   hostname=$(echo "$entry" | cut -d'|' -f1)
   country_long=$(echo "$entry" | cut -d'|' -f2)
   base64_data=$(echo "$entry" | cut -d'|' -f7)
+  provider=$(echo "$entry" | cut -d'|' -f8)
+  auth=$(echo "$entry" | cut -d'|' -f9)
 
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
+  # VPN Gate public servers always use vpn/vpn; VPNBook ships its own password.
+  if [[ -z "$auth" && "$provider" == "vpngate" ]]; then
+    auth="vpn:vpn"
+  fi
+
+  local -a auth_args=()
+  if [[ -n "$auth" ]]; then
+    local creds="$DIR/auth.txt"
+    printf '%s\n%s\n' "${auth%%:*}" "${auth#*:}" > "$creds"
+    chmod 600 "$creds"
+    auth_args=(--auth-user-pass "$creds" --auth-nocache)
+  fi
+
   log "Starting OpenVPN in daemon mode..."
   _sudo openvpn --config "$OVPN_CONFIG" --cd "$DIR" \
+    "${auth_args[@]}" \
     --daemon \
     --log "$DIR/openvpn.log" \
     --writepid "$PID_FILE"
@@ -179,25 +195,14 @@ cmd_reconnect() {
   local country="${1:-}"
   local fast="${2:-false}"
   local protocol="${3:-auto}"
+  local server="${4:-}"
   cmd_disconnect 2>/dev/null || true
   sleep 1
-  fetch_servers
-  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
-  if [[ "$fast" == "true" ]]; then
-    log "Sorting servers by lowest ping...${country:+ ($country)}"
-  else
-    log "Analysing servers by score...${country:+ ($country)}"
-  fi
-  ((${#servers[@]})) || die "No servers available${country:+ for $country}."
-
-  local best="${servers[0]}"
+  local entry
+  entry=$(pick_entry "$country" "$fast" "$protocol" "$server")
   local h c
-  h=$(echo "$best" | cut -d'|' -f1)
-  c=$(echo "$best" | cut -d'|' -f2)
-  local s
-  s=$(echo "$best" | cut -d'|' -f4)
-
-  log "Best option found: ${h} (${c}) — score: $(printf "%'d" "$s")"
-
-  connect_tunnel "$best"
+  h=$(echo "$entry" | cut -d'|' -f1)
+  c=$(echo "$entry" | cut -d'|' -f2)
+  log "Best option found: ${h} (${c})"
+  connect_tunnel "$entry"
 }

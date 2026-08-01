@@ -43,7 +43,7 @@ for row in reader:
     b64 = row[14].strip()
     if not b64:
         continue
-    print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|ovpn|{b64}|vpngate')
+    print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|ovpn|{b64}|vpngate|vpn:vpn')
 " 2>/dev/null > "$DIR/providers/vpngate.db"
 
   [[ -s "$DIR/providers/vpngate.db" ]]

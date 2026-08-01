@@ -189,7 +189,7 @@ if m:
       local b64
       b64=$(echo "$config" | base64 -w0)
 
-      echo "${hostname}|${cname}|${ccode}|50|50|ovpn|${b64}|vpnbook" >> "$db"
+      echo "${hostname}|${cname}|${ccode}|50|50|ovpn|${b64}|vpnbook|vpnbook:${password}" >> "$db"
     done
   done <<< "$servers_json"
 

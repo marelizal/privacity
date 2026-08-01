@@ -23,7 +23,7 @@ CLI tool that finds the fastest public VPN servers from multiple providers (**VP
 - 🌐 Internet health check after connect (DNS + HTTP)
 - ⚡ Download + upload speed test
 - 🔔 Desktop notifications on connect/disconnect/fail
-- 🗂️ Multi-profile: `privacity --profile work daemon`
+- 🎯 Pick any server from the list: `privacity --server <host>`
 - 📝 Log to file with `--log-file <path>` + `--verbose` timestamps
 - 🌍 Country filter: `privacity -c Japan`
 - ⚙️ Config file: `~/.config/privacity/config` (country, mode, fast, protocol)
@@ -59,7 +59,7 @@ Herramienta CLI que obtiene los servidores públicos más rápidos de múltiples
 - 🌐 Verifica conectividad a Internet después de conectar (DNS + HTTP)
 - ⚡ Prueba de velocidad de descarga y subida
 - 🔔 Notificaciones de escritorio al conectar/desconectar/fallar
-- 🗂️ Multi-perfil: `privacity --profile trabajo daemon`
+- 🎯 Elegir cualquier servidor de la lista: `privacity --server <host>`
 - 📝 Log a archivo con `--log-file <ruta>` + marcas de tiempo con `--verbose`
 - 🌍 Filtro por país: `privacity -c Japon`
 - ⚙️ Archivo de configuración: `~/.config/privacity/config` (país, modo, fast, protocol)

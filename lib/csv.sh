@@ -59,6 +59,8 @@ for line in sys.stdin:
     if len(parts) < 7:
         continue
     hostname, country_long, country_short, score_s, ping_s, protocol, b64 = parts[:7]
+    provider = parts[7].strip() if len(parts) > 7 else ''
+    auth = parts[8].strip() if len(parts) > 8 else ''
     score_s = score_s.strip()
     ping_s = ping_s.strip()
     if not score_s.isdigit():
@@ -71,14 +73,55 @@ for line in sys.stdin:
         continue
     if protocol_filter and protocol_filter != 'auto' and protocol != protocol_filter:
         continue
-    rows.append((score, ping, hostname, country_long, country_short, protocol, b64))
+    rows.append((score, ping, hostname, country_long, country_short, protocol, b64, provider, auth))
 if sort_by_ping:
     rows.sort(key=lambda r: (r[1], -r[0]))
 else:
     rows.sort(key=lambda r: -r[0])
-for score, ping, hostname, country_long, country_short, protocol, b64 in rows:
-    print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|{protocol}|{b64}')
+for score, ping, hostname, country_long, country_short, protocol, b64, provider, auth in rows:
+    print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|{protocol}|{b64}|{provider}|{auth}')
 " "$country_filter" "$sort_by_ping" "$protocol_filter" 2>/dev/null < "$file"
+}
+
+# Pick the single server to connect to: explicit --server match, else best of the list.
+pick_entry() {
+  local country="${1:-}"
+  local fast="${2:-false}"
+  local protocol="${3:-auto}"
+  local server="${4:-}"
+
+  if ! _cache_fresh "$CSV"; then
+    fetch_servers
+  else
+    log "Using cached server list..."
+  fi
+
+  if [[ -n "$server" ]]; then
+    local entry
+    entry=$(find_server_entry "$server" "$country")
+    [[ -n "$entry" ]] || die "Server not found: $server${country:+ in '$country'}. Run 'privacity list' to see available servers."
+    printf '%s\n' "$entry"
+    return 0
+  fi
+
+  local -a servers
+  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
+  ((${#servers[@]})) || _no_servers_hint "$country"
+  printf '%s\n' "${servers[0]}"
+}
+
+# Find a server entry by hostname or country (case-insensitive substring).
+# Optional country filter narrows the match.
+find_server_entry() {
+  local want="${1:-}"
+  local country="${2:-}"
+  want="${want,,}"
+  country="${country,,}"
+  [[ -s "$CSV" ]] || return 1
+  awk -F'|' -v w="$want" -v c="$country" '
+    (c == "" || tolower($2)==c || index(tolower($2), c) || tolower($3)==c || index(tolower($3), c)) &&
+    (tolower($1)==w || index(tolower($1), w) || tolower($2)==w || index(tolower($2), w))
+  ' "$CSV" 2>/dev/null | head -1
 }
 
 list_countries() {

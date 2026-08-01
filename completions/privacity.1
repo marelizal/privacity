@@ -1,36 +1,40 @@
-.TH PRIVACITY 1 "2026-06" "privacity" "User Commands"
+.TH PRIVACITY 1 "2026-08" "privacity" "User Commands"
 .SH NAME
-privacity \- VPN Gate auto-connector
+privacity \- VPN Gate auto-connector (daemon-first)
 .SH SYNOPSIS
 .B privacity
-[\fB\-c\fR \fIcountry\fR] [\fB\-\-country\fR \fIcountry\fR]
-[\fIcommand\fR]
+[\fB\-c\fR \fIcountry\fR] [\fB\-\-server\fR \fIhost\fR]
+[\fB\-\-fast\fR] [\fB\-\-protocol\fR \fItype\fR] [\fIcommand\fR]
 .SH DESCRIPTION
-Fetches the fastest public VPN Gate servers and connects via OpenVPN
-\-\- interactive or daemon mode.  Picks the server with the highest
-score, sanitizes its OpenVPN config, and handles the full connection
-lifecycle.
+Fetches the fastest public VPN Gate servers, picks the best one, and
+connects via OpenVPN or WireGuard in the background.  Credentials for
+public servers (VPN Gate vpn/vpn, VPNBook) are injected automatically,
+so no interactive prompt is needed.  Daemon mode is the default.
 .SH OPTIONS
 .TP
 \fB\-c\fR, \fB\-\-country\fR \fIcountry\fR
 Filter servers by country name or code (e.g. "Japan", "US", "Korea").
 .TP
+\fB\-\-server\fR \fIhost\fR
+Connect to a specific server from the cached list, by hostname or
+country (case-insensitive substring).  Combined with \fB\-c\fR to
+narrow the match.  See "privacity list" to find servers.
+.TP
+\fB\-\-fast\fR
+Sort servers by lowest ping (ms) instead of highest score.
+.TP
+\fB\-\-protocol\fR \fItype\fR
+Force VPN protocol: ovpn, wg, or auto (default).
+.TP
 \fB\-\-log-file\fR \fIpath\fR
 Write all output to the given log file (tee).
-.TP
-\fB\-\-profile\fR \fIname\fR
-Use isolated profile.  Config and data stored under
-~/.config/privacity/<name>.config and
-~/.local/share/privacity/<name>/ respectively.
 .TP
 \fB\-\-verbose\fR
 Show timestamps and detailed output.
 .SH COMMANDS
 .TP
 .B privacity
-Interactive guided mode (default).  Shows top 3 servers, asks for
-confirmation, then connects and displays live speed, IP, and ping.
-Press \fBQ\fR to disconnect, \fBS\fR to switch server.
+Daemon mode (default).  Connect to the best server in background.
 .TP
 .B daemon
 Connect in background.  No terminal needed after connection.
@@ -42,13 +46,17 @@ Install systemd user service so the VPN auto-connects after login.
 Remove the systemd user service.
 .TP
 .B list
-Show top 10 servers and list available countries.
+Show top 20 servers with score and ping, plus available countries.
+.TP
+.B countries
+List all available countries.
 .TP
 .B disconnect
 Tear down the current VPN connection.
 .TP
 .B reconnect
-Pick the best server (optionally filtered by \fB\-c\fR) and reconnect.
+Pick the best server (optionally filtered by \fB\-c\fR/\fB\-\-server\fR)
+and reconnect.
 .TP
 .B status
 Show current connection: server, country, external IP, ping, speed.
@@ -65,10 +73,13 @@ Show the help message with all commands and options.
 .TP
 \fI~/.config/privacity/config\fR
 Configuration file.  Format: \fBKEY=VALUE\fR.
-Supported keys: \fBcountry\fR, \fBmode\fR (daemon|interactive).
+Supported keys: \fBcountry\fR, \fBmode\fR, \fBfast\fR, \fBprotocol\fR.
 .TP
 \fI~/.local/share/privacity/servers.csv\fR
 Cached VPN Gate server list (5 minute TTL).
+.TP
+\fI~/.local/share/privacity/auth.txt\fR
+Credentials for the active public VPN (mode 0600).
 .TP
 \fI~/.local/share/privacity/active.ovpn\fR
 Sanitized OpenVPN config of the active connection.
@@ -83,11 +94,17 @@ Last connected server hostname and country.
 OpenVPN daemon log.
 .SH EXAMPLES
 .TP
-Connect to the best server (interactive)
+Connect to the best server (daemon)
 .B privacity
 .TP
 Connect to a Japanese server in background
-.B privacity \-c Japan daemon
+.B privacity \-c Japan
+.TP
+Connect to the fastest-ping US server
+.B privacity \-c US \-\-fast
+.TP
+Connect to a specific server
+.B privacity \-\-server vpn123
 .TP
 List Korean servers
 .B privacity \-c Korea list
@@ -98,7 +115,7 @@ Check current connection
 Reconnect to a US server
 .B privacity \-c US reconnect
 .SH DEPENDENCIES
-Runtime: openvpn, wget, curl, base64 (coreutils), sudo.
+Runtime: openvpn, wget, curl, wg-quick, sudo.
 .SH AUTHOR
 Martin <https://github.com/marelizal>
 .SH BUGS

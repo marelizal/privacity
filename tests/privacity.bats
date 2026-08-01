@@ -184,6 +184,73 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [ "$status" -ne 0 ]
 }
 
+# ──────── find_server_entry / pick_entry ────────────────────────────────────
+
+@test "parse_servers carries provider and auth fields" {
+  printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; parse_servers "'"$CSV"'" | head -1'
+  [ "$status" -eq 0 ]
+  [[ "$(echo "$output" | cut -d'|' -f8)" == "vpngate" ]]
+  [[ "$(echo "$output" | cut -d'|' -f9)" == "vpn:vpn" ]]
+}
+
+@test "find_server_entry matches by hostname substring" {
+  printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; find_server_entry vpn1'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vpn1.example.com"* ]]
+}
+
+@test "find_server_entry honors country filter" {
+  printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
+  printf 'us1.example.com|United States|US|1000|30|ovpn|YmFk|vpngate|vpn:vpn\n' >> "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; find_server_entry example US'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"us1.example.com"* ]]
+  [[ "$output" != *"vpn1.example.com"* ]]
+}
+
+@test "pick_entry returns specific server when --server given" {
+  printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; pick_entry "" false auto "vpn1"'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"vpn1.example.com"* ]]
+}
+
+@test "pick_entry dies when --server not found" {
+  printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; pick_entry "" false auto "nope"'
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"Server not found"* ]]
+}
+
+@test "connect_daemon writes auth file from entry field 9" {
+  local b64
+  b64=$(base64 < "${BATS_TEST_DIRNAME}/fixtures/valid.ovpn" | tr -d '\n')
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    _sudo() { "$@"; }
+    openvpn() { echo "$*" > "$DIR/mock_args"; }
+    connect_daemon "vpn1.example.com|Japan|JP|9999|10|ovpn|'"$b64"'|vpngate|vpn:vpn" >/dev/null 2>&1
+    echo "---AUTH---"; cat "$DIR/auth.txt"
+    echo "---ARGS---"; grep -o "\-\-auth-user-pass [^ ]*" "$DIR/mock_args"
+  '
+  [[ "$output" == *"---AUTH---"*"vpn"*"---ARGS---"*"--auth-user-pass"* ]]
+}
+
+@test "connect_daemon defaults vpngate auth to vpn:vpn" {
+  local b64
+  b64=$(base64 < "${BATS_TEST_DIRNAME}/fixtures/valid.ovpn" | tr -d '\n')
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    _sudo() { "$@"; }
+    openvpn() { echo "$*" > "$DIR/mock_args"; }
+    connect_daemon "vpn1.example.com|Japan|JP|9999|10|ovpn|'"$b64"'|vpngate" >/dev/null 2>&1
+    cat "$DIR/auth.txt"
+  '
+  [[ "$output" == *"vpn"* ]]
+}
+
 # ──────── _stat_mtime ──────────────────────────────────────────────────────
 
 @test "_stat_mtime returns 0 for missing file" {

@@ -21,10 +21,10 @@ Global options must come **before** the command.
 | Option | Description |
 |---|---|---|
 | `-c`, `--country <name>` | Filter servers by country (e.g. `Japan`, `US`, `Korea, Republic of`) |
+| `--server <host>` | Connect to a specific server (hostname or country from the list) |
 | `--fast` | Sort servers by lowest ping (ms) instead of highest score |
 | `--protocol <type>` | Force VPN protocol: `ovpn`, `wg`, or `auto` (default) |
 | `--countries` | Show all available countries (also via `privacity countries`) |
-| `--profile <name>` | Isolated profile (separate config + data dirs) |
 | `--log-file <path>` | Write all output to a file (tee) |
 | `--verbose` | Show timestamps in output |
 
@@ -39,6 +39,7 @@ privacity
 privacity -c Japan
 privacity --protocol wg
 privacity -c Japan --fast
+privacity --server vpn123
 ```
 
 #### `countries`
@@ -60,7 +61,16 @@ Connect in background. No terminal interaction needed after launch.
 privacity daemon
 privacity -c Japan daemon
 privacity -c Japan --fast daemon
-privacity --profile work daemon
+```
+
+#### `--server`
+
+Pick a specific server from the cached list (by hostname or country substring) and connect to it. Requires a fresh server list — fetch it with `privacity list` first if the cache is empty.
+
+```
+privacity --server vpn123 list     # find the server
+privacity --server vpn123          # connect to it
+privacity -c Japan --server tokyo  # combine with country filter
 ```
 
 #### `daemon --persist`

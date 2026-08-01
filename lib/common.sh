@@ -96,35 +96,26 @@ _sudo() {
 }
 
 check_deps() {
-  for dep in openvpn wget curl base64 wg-quick; do
+  local -a missing=() pkgs=()
+  local dep pkg
+  for dep in openvpn wget curl wg-quick; do
     if ! command -v "$dep" &>/dev/null; then
-      local pkg
+      missing+=("$dep")
       case "$dep" in
-        openvpn)   pkg="openvpn" ;;
-        wget)      pkg="wget" ;;
-        curl)      pkg="curl" ;;
-        base64)    pkg="coreutils" ;;
-        wg-quick)  pkg="wireguard-tools" ;;
+        openvpn)   pkgs+=(openvpn) ;;
+        wget)      pkgs+=(wget) ;;
+        curl)      pkgs+=(curl) ;;
+        wg-quick)  pkgs+=(wireguard-tools) ;;
       esac
-      warn "$dep is not installed."
-      printf "  %s[?]%s Install %s? %s[Y/n]%s " "${YELLOW}${BOLD}" "${NC}" "$pkg" "${DIM}" "${NC}"
-      read -r yn
-      if [[ "${yn,,}" != "n" ]]; then
-        log "Installing ${pkg}..."
-        _sudo apt install -y "$pkg" || die "Failed to install ${pkg}."
-      else
-        die "$dep is required to run privacity."
-      fi
     fi
   done
-  if [[ $EUID -ne 0 ]]; then
-    if ! command -v sudo &>/dev/null; then
-      die "sudo not found. Install it manually."
-    fi
-    if ! sudo -n true 2>/dev/null; then
-      warn "OpenVPN needs root. You will be prompted for sudo password."
-      warn "Run ${BOLD}sudo privacity${NC} to skip prompts."
-    fi
+  ((${#missing[@]})) || return 0
+
+  log "Installing missing deps: ${pkgs[*]}"
+  if _sudo apt-get install -y "${pkgs[@]}" >/dev/null 2>&1; then
+    log "Installed: ${pkgs[*]}"
+  else
+    die "Missing deps: ${missing[*]}. Run: sudo apt-get install -y ${pkgs[*]}"
   fi
 }
 
@@ -132,17 +123,6 @@ notify() {
   command -v notify-send &>/dev/null || return 0
   local urgency="${2:-normal}"
   notify-send -a privacity -u "$urgency" "Privacity" "$1" 2>/dev/null || true
-}
-
-use_profile() {
-  PROFILE="$1"
-  DIR="${DIR_BASE}/${PROFILE}"
-  CSV="$DIR/servers.csv"
-  OVPN_CONFIG="$DIR/active.ovpn"
-  PID_FILE="$DIR/privacity.pid"
-  LAST_HOST="$DIR/last_host"
-  CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/${PROFILE}.config"
-  mkdir -p "$DIR"
 }
 
 load_config() {

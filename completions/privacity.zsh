@@ -25,8 +25,10 @@ _privacity() {
 
   local opts=(
     {-c,--country}'[Filter servers by country]:country:''
+    '--server=[Connect to a specific server from the list]:host:'
+    '--fast[Sort servers by lowest ping]'
+    '--protocol=[Force protocol: ovpn, wg, auto]:protocol:(ovpn wg auto)'
     '--log-file=[Write output to log file]:file:_files'
-    '--profile=[Use isolated profile]:name:'
     '--verbose[Show timestamps and detailed output]'
   )
 

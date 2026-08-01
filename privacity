@@ -26,11 +26,11 @@
 #
 #   Options:
 #     -c, --country <name>   Filter servers by country
+#     --server <host>        Connect to a specific server (from the list)
 #     --countries            Show all available countries
 #     --fast                 Sort servers by lowest ping instead of highest score
 #     --protocol <ovpn|wg|auto>  Force VPN protocol (default: auto)
 #     --log-file <path>      Write output to log file
-#     --profile <name>       Use isolated profile (config + data)
 #     --verbose              Show timestamps and detailed output
 #
 # Install:
@@ -107,43 +107,44 @@ cmd_update() {
 cmd_help() {
   cat <<EOF
 
-  \${BOLD}\${WHITE}Privacity\${NC} \${DIM}v\${VERSION}\${NC} \${WHITE}—\${NC} \${DIM}VPN Gate Client\${NC}
-  \${BOLD}USAGE\${NC}
-    privacity \${DIM}[options] [command]\${NC}
+  ${BOLD}${WHITE}Privacity${NC} ${DIM}v${VERSION}${NC} ${WHITE}—${NC} ${DIM}VPN Gate Client${NC}
+  ${BOLD}USAGE${NC}
+    privacity ${DIM}[options] [command]${NC}
 
-  \${BOLD}OPTIONS\${NC}
-    \${GREEN}-c, --country\${NC}     Filter servers by country (name or code)
-    \${GREEN}--countries\${NC}       Show all available countries
-    \${GREEN}--fast\${NC}            Sort servers by lowest ping (ms)
-    \${GREEN}--protocol <type>\${NC}  Force protocol: ovpn, wg, auto (default)
-    \${GREEN}--log-file <path>\${NC}  Write output to log file
-    \${GREEN}--profile <name>\${NC}   Use isolated profile (config + data)
-    \${GREEN}--verbose\${NC}          Show timestamps and detailed output
+  ${BOLD}OPTIONS${NC}
+    ${GREEN}-c, --country${NC}     Filter servers by country (name or code)
+    ${GREEN}--server <host>${NC}   Connect to a specific server from the list
+    ${GREEN}--countries${NC}       Show all available countries
+    ${GREEN}--fast${NC}            Sort servers by lowest ping (ms)
+    ${GREEN}--protocol <type>${NC}  Force protocol: ovpn, wg, auto (default)
+    ${GREEN}--log-file <path>${NC}  Write output to log file
+    ${GREEN}--verbose${NC}          Show timestamps and detailed output
 
-  \${BOLD}COMMANDS\${NC}
-    \${GREEN}privacity\${NC}          Daemon mode — connect in background (default)
-    \${GREEN}privacity --countries\${NC}  Show all available countries
-    \${GREEN}privacity countries\${NC}   Show all available countries
-    \${GREEN}privacity daemon\${NC}     Connect in background – no terminal needed
-    \${GREEN}privacity daemon --persist\${NC}  Install systemd user service
-    \${GREEN}privacity daemon --unpersist\${NC}  Remove systemd user service
-    \${GREEN}privacity list\${NC}    Show top servers and available countries
-    \${GREEN}privacity disconnect\${NC}  Tear down the current VPN
-    \${GREEN}privacity reconnect\${NC}   Pick a new server and reconnect
-    \${GREEN}privacity status\${NC}      Show connection details and live speed
-    \${GREEN}privacity speedtest\${NC}   Measure download & upload speed
-    \${GREEN}privacity update\${NC}      Pull latest version and reinstall
-    \${GREEN}privacity help\${NC}        Show this message
+  ${BOLD}COMMANDS${NC}
+    ${GREEN}privacity${NC}          Daemon mode — connect in background (default)
+    ${GREEN}privacity --countries${NC}  Show all available countries
+    ${GREEN}privacity countries${NC}   Show all available countries
+    ${GREEN}privacity daemon${NC}     Connect in background – no terminal needed
+    ${GREEN}privacity daemon --persist${NC}  Install systemd user service
+    ${GREEN}privacity daemon --unpersist${NC}  Remove systemd user service
+    ${GREEN}privacity list${NC}    Show top servers and available countries
+    ${GREEN}privacity disconnect${NC}  Tear down the current VPN
+    ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect
+    ${GREEN}privacity status${NC}      Show connection details and live speed
+    ${GREEN}privacity speedtest${NC}   Measure download & upload speed
+    ${GREEN}privacity update${NC}      Pull latest version and reinstall
+    ${GREEN}privacity help${NC}        Show this message
 
-  \${BOLD}EXAMPLES\${NC}
+  ${BOLD}EXAMPLES${NC}
     privacity                           Connect to best server (daemon)
-  \${DIM}privacity --countries\${NC}               Show available countries
-  \${DIM}privacity -c Japan\${NC}                  Connect to Japan
-  \${DIM}privacity -c US --fast\${NC}              Fastest ping to US
-  \${DIM}privacity -c Korea list\${NC}             List Korean servers
-    \${DIM}privacity daemon --persist\${NC}        Auto-connect on login
+  ${DIM}privacity --countries${NC}               Show available countries
+  ${DIM}privacity -c Japan${NC}                  Connect to Japan
+  ${DIM}privacity -c US --fast${NC}              Fastest ping to US
+  ${DIM}privacity --server vpn123${NC}           Connect to a specific server
+  ${DIM}privacity -c Korea list${NC}             List Korean servers
+    ${DIM}privacity daemon --persist${NC}        Auto-connect on login
 
-  \${BOLD}INSTALL\${NC}
+  ${BOLD}INSTALL${NC}
     sudo make install
     sudo make completions
 
@@ -246,7 +247,7 @@ cmd_list() {
   if [[ -z "$country" ]]; then
     printf "\n"
     info "Available countries:"
-    echo $(list_countries "$CSV" 2>/dev/null) | fold -s -w 70 | sed 's/^/  /'
+    list_countries "$CSV" 2>/dev/null | tr '\n' ' ' | fold -s -w 70 | sed 's/^/  /'
     printf "\n"
   fi
 
@@ -263,15 +264,16 @@ main() {
   local country="${CONFIG_COUNTRY:-}"
   local fast="${CONFIG_FAST:-false}"
   local protocol="${CONFIG_PROTOCOL:-auto}"
+  local server=""
   local default_mode="${CONFIG_MODE:-}"
   # shellcheck disable=SC2034
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
       --fast) fast=true; shift ;;
+      --server) server="$2"; shift 2 ;;
       --protocol) protocol="$2"; shift 2 ;;
       --log-file) LOG_FILE="$2"; shift 2 ;;
-      --profile) use_profile "$2"; shift 2 ;;
       --verbose) VERBOSE=true; shift ;;
       --countries) cmd_countries; exit 0 ;;
       --) shift; break ;;
@@ -301,22 +303,7 @@ main() {
           exit 0
           ;;
       esac
-      if ! _cache_fresh "$CSV"; then
-        fetch_servers
-      else
-        log "Using cached server list..."
-      fi
-      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
-      if ((${#servers[@]})); then
-        if [[ "$fast" == "true" ]]; then
-          log "Sorting servers by lowest ping..."
-        else
-          log "Analysing servers by score..."
-        fi
-        connect_tunnel "${servers[0]}"
-      else
-        _no_servers_hint "$country"
-      fi
+      connect_best "$country" "$fast" "$protocol" "$server"
       ;;
 
     countries|paises)
@@ -328,7 +315,7 @@ main() {
       ;;
 
     reconnect|re)
-      cmd_reconnect "$country" "$fast" "$protocol"
+      cmd_reconnect "$country" "$fast" "$protocol" "$server"
       ;;
 
     status|st)
@@ -352,24 +339,26 @@ main() {
       ;;
 
     *)
-      if ! _cache_fresh "$CSV"; then
-        fetch_servers
-      else
-        log "Using cached server list..."
-      fi
-      mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
-      if ((${#servers[@]})); then
-        if [[ "$fast" == "true" ]]; then
-          log "Sorting servers by lowest ping..."
-        else
-          log "Analysing servers by score..."
-        fi
-        connect_tunnel "${servers[0]}"
-      else
-        _no_servers_hint "$country"
-      fi
+      connect_best "$country" "$fast" "$protocol" "$server"
       ;;
   esac
+}
+
+connect_best() {
+  local country="${1:-}"
+  local fast="${2:-false}"
+  local protocol="${3:-auto}"
+  local server="${4:-}"
+
+  if [[ "$fast" == "true" ]]; then
+    log "Sorting servers by lowest ping...${country:+ ($country)}"
+  else
+    log "Analysing servers by score...${country:+ ($country)}"
+  fi
+
+  local entry
+  entry=$(pick_entry "$country" "$fast" "$protocol" "$server")
+  connect_tunnel "$entry"
 }
 # shellcheck disable=SC2317
 return 0 2>/dev/null || main "$@"
