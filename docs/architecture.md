@@ -78,6 +78,8 @@ Manages the OpenVPN connection lifecycle:
 | `cmd_status` | Show connection state, IP, ping, speed |
 | `cmd_reconnect` | Pick new server, disconnect existing, connect |
 | `write_config <b64>` | Decode and sanitize Base64 OpenVPN config |
+| `_set_tunnel_dns` | Force DNS through the tunnel (`resolvectl dns tun0 1.1.1.1`) |
+| `_verify_ip_change` | Warn if the external IP didn't change after connect (possible leak) |
 | `get_external_ip` | Get public IP via multiple fallback services |
 | `check_internet` | Verify DNS + HTTP connectivity after tunnel is up |
 
@@ -101,6 +103,19 @@ Standalone network diagnostic tool:
 - `route-pre-down`, `route-up`, `ipchange`
 
 It also adds `data-ciphers` if missing (ensures AES-GCM is available on modern OpenVPN).
+
+### Connection hardening
+
+`write_config()` appends leak-prevention directives that are safe to force:
+
+- `remote-cert-tls server` — reject servers without a server-class certificate (MITM protection)
+- `tls-version-min 1.2` — no legacy TLS
+- `ifconfig-ipv6` + `redirect-gateway ipv6` + `block-ipv6` — blackhole IPv6 (VPN Gate is IPv4-only) when OpenVPN ≥ 2.5
+
+After the tunnel is up, `connect_daemon`:
+
+- forces DNS through the tunnel (`_set_tunnel_dns`: `resolvectl dns tun0 1.1.1.1`, `domain tun0 ~.`)
+- verifies the external IP changed from the pre-connect value (`_verify_ip_change`) and warns on a leak
 
 ### Connection flow
 
@@ -194,6 +209,8 @@ Gestiona el ciclo de vida de la conexión OpenVPN:
 | `cmd_status` | Mostrar estado de conexión, IP, ping, velocidad |
 | `cmd_reconnect` | Elegir nuevo servidor, desconectar existente, conectar |
 | `write_config <b64>` | Decodificar y sanitizar configuración OpenVPN en Base64 |
+| `_set_tunnel_dns` | Forzar DNS por el túnel (`resolvectl dns tun0 1.1.1.1`) |
+| `_verify_ip_change` | Avisar si la IP externa no cambió tras conectar (posible fuga) |
 | `get_external_ip` | Obtener IP pública mediante múltiples servicios alternativos |
 | `check_internet` | Verificar conectividad DNS + HTTP después de que el túnel esté activo |
 
@@ -217,6 +234,19 @@ Herramienta independiente de diagnóstico de red:
 - `route-pre-down`, `route-up`, `ipchange`
 
 También agrega `data-ciphers` si falta (asegura que AES-GCM esté disponible en OpenVPN moderno).
+
+### Endurecimiento de la conexión
+
+`write_config()` agrega directivas de prevención de fugas que son seguras de forzar:
+
+- `remote-cert-tls server` — rechaza servidores sin certificado de tipo servidor (protección contra MITM)
+- `tls-version-min 1.2` — sin TLS obsoleto
+- `ifconfig-ipv6` + `redirect-gateway ipv6` + `block-ipv6` — bloquea IPv6 (VPN Gate es solo IPv4) cuando OpenVPN ≥ 2.5
+
+Después de que el túnel esté activo, `connect_daemon`:
+
+- fuerza DNS por el túnel (`_set_tunnel_dns`: `resolvectl dns tun0 1.1.1.1`, `domain tun0 ~.`)
+- verifica que la IP externa cambió respecto al valor previo (`_verify_ip_change`) y avisa ante una fuga
 
 ### Flujo de conexión
 

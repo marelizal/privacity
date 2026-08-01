@@ -4,6 +4,28 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+_append_ovpn() {
+  local key="$1" line="$2"
+  grep -qiE "^[[:space:]]*${key}([[:space:]]|$)" "$OVPN_CONFIG" || echo "$line" >> "$OVPN_CONFIG"
+}
+
+# Hardening: force server-cert verification, TLS 1.2+, and block IPv6
+# (VPN Gate is IPv4-only, so IPv6 can otherwise leak around the tunnel).
+_harden_config() {
+  _append_ovpn remote-cert-tls "remote-cert-tls server"
+  _append_ovpn tls-version-min "tls-version-min 1.2"
+
+  local major minor
+  major=$(openvpn --version 2>/dev/null | head -1 | sed -n 's/.*OpenVPN \([0-9]*\)\.[0-9]*.*/\1/p')
+  minor=$(openvpn --version 2>/dev/null | head -1 | sed -n 's/.*OpenVPN [0-9]*\.\([0-9]*\).*/\1/p')
+  if [[ -n "$major" && "$major" -ge 2 && -n "$minor" && "$minor" -ge 5 ]] &&
+     ! grep -qiE '^[[:space:]]*block-ipv6' "$OVPN_CONFIG"; then
+    echo "ifconfig-ipv6 fd15:53b6:dead::2/64 fd15:53b6:dead::1" >> "$OVPN_CONFIG"
+    echo "redirect-gateway ipv6" >> "$OVPN_CONFIG"
+    echo "block-ipv6" >> "$OVPN_CONFIG"
+  fi
+}
+
 write_config() {
   local base64_data="$1"
   mkdir -p "$DIR"
@@ -19,6 +41,8 @@ write_config() {
     echo "" >> "$OVPN_CONFIG"
     echo "data-ciphers DEFAULT:AES-128-CBC" >> "$OVPN_CONFIG"
   fi
+
+  _harden_config
 }
 
 save_pid() { echo "$1" > "$PID_FILE"; }
@@ -37,6 +61,28 @@ read_host() {
   fi
 }
 
+# Force DNS through the tunnel so queries can't leak to the ISP resolver.
+_set_tunnel_dns() {
+  command -v resolvectl &>/dev/null || return 0
+  _sudo resolvectl dns tun0 1.1.1.1 1.0.0.1 2>/dev/null || true
+  _sudo resolvectl domain tun0 "~." 2>/dev/null || true
+  _sudo resolvectl flush-caches 2>/dev/null || true
+}
+
+_verify_ip_change() {
+  local pre_ip="$1"
+  [[ -n "$pre_ip" && "$pre_ip" != "-" ]] || return 0
+  local post_ip
+  post_ip=$(get_external_ip 2>/dev/null || true)
+  if [[ -n "$post_ip" && "$post_ip" != "-" ]]; then
+    if [[ "$post_ip" == "$pre_ip" ]]; then
+      warn "External IP unchanged ($pre_ip) — possible leak, tunnel may be dead"
+    else
+      log "External IP: $pre_ip → $post_ip"
+    fi
+  fi
+}
+
 connect_daemon() {
   local entry="$1"
   local hostname country_long base64_data provider auth
@@ -45,6 +91,9 @@ connect_daemon() {
   base64_data=$(echo "$entry" | cut -d'|' -f7)
   provider=$(echo "$entry" | cut -d'|' -f8)
   auth=$(echo "$entry" | cut -d'|' -f9)
+
+  local pre_ip
+  pre_ip=$(timeout 8 get_external_ip 2>/dev/null || true)
 
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
@@ -81,7 +130,9 @@ connect_daemon() {
   if $connected; then
     notify "Connected to $hostname ($country_long)"
     log "Connected to ${hostname} (${country_long})"
+    _set_tunnel_dns
     check_internet
+    _verify_ip_change "$pre_ip"
     printf "\n"
     dim "  Run ${BOLD}privacity status${NC}${DIM} to check the connection${NC}"
     dim "  Run ${BOLD}privacity disconnect${NC}${DIM} to tear it down${NC}"

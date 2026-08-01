@@ -176,6 +176,65 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [[ "$output" != *"NOT_FOUND"* ]]
 }
 
+@test "write_config adds TLS hardening directives" {
+  local b64
+  b64=$(base64 < "${BATS_TEST_DIRNAME}/fixtures/valid.ovpn" | tr -d '\n')
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    write_config "'"$b64"'" 2>/dev/null
+    grep -q "remote-cert-tls server" "'"$OVPN_CONFIG"'" || echo "NO_CERT_TLS"
+    grep -q "tls-version-min 1.2" "'"$OVPN_CONFIG"'" || echo "NO_TLS_MIN"
+  '
+  [[ "$output" != *"NO_CERT_TLS"* ]]
+  [[ "$output" != *"NO_TLS_MIN"* ]]
+}
+
+@test "write_config does not duplicate existing remote-cert-tls" {
+  local b64
+  b64=$(printf 'client\ndev tun\nproto udp\nremote vpn.example.com 1194\nca ca.crt\nremote-cert-tls server\n' | base64 | tr -d '\n')
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    write_config "'"$b64"'" 2>/dev/null
+    grep -c "remote-cert-tls" "'"$OVPN_CONFIG"'" 2>/dev/null || echo "NOT_FOUND"
+  '
+  [[ "$output" == "1" ]]
+}
+
+@test "write_config blocks IPv6 when OpenVPN >= 2.5" {
+  local ver major minor
+  ver=$(openvpn --version 2>/dev/null | head -1 | sed -n 's/.*OpenVPN \([0-9]*\)\.\([0-9]*\).*/\1 \2/p')
+  major=${ver% *}; minor=${ver#* }
+  if [[ -z "$major" ]] || { [[ "$major" -lt 2 ]] || { [[ "$major" -eq 2 ]] && [[ "$minor" -lt 5 ]]; }; }; then
+    skip "OpenVPN < 2.5"
+  fi
+  local b64
+  b64=$(base64 < "${BATS_TEST_DIRNAME}/fixtures/valid.ovpn" | tr -d '\n')
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    write_config "'"$b64"'" 2>/dev/null
+    grep -q "block-ipv6" "'"$OVPN_CONFIG"'" || echo "NOT_FOUND"
+  '
+  [[ "$output" != *"NOT_FOUND"* ]]
+}
+
+@test "_verify_ip_change warns when external IP did not change" {
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    get_external_ip() { echo "1.2.3.4"; }
+    _verify_ip_change "1.2.3.4"
+  '
+  [[ "$output" == *"unchanged"* ]]
+}
+
+@test "_verify_ip_change logs when external IP changed" {
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    get_external_ip() { echo "5.6.7.8"; }
+    _verify_ip_change "1.2.3.4"
+  '
+  [[ "$output" == *"5.6.7.8"* ]]
+}
+
 @test "write_config fails on invalid base64" {
   run bash -c '
     source "'"$PRIVACITY"'" 2>/dev/null

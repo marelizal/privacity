@@ -17,6 +17,7 @@ CLI tool that finds the fastest public VPN Gate servers and connects via **OpenV
 ### Features
 
 - 🔒 Sanitizes OpenVPN configs (strips `script-security`, `up`, `down`, `persist-key`, etc.)
+- 🛡️ Leak protection: forced DNS through tunnel, IPv6 blocked, server-cert verification (`remote-cert-tls`)
 - 🔀 VPN Gate server list, unified and cached (5 min TTL)
 - ⚡ OpenVPN with auto-injected credentials (no prompts in daemon)
 - 🌐 Internet health check after connect (DNS + HTTP)
@@ -50,6 +51,7 @@ Herramienta CLI que obtiene los servidores públicos más rápidos de **VPN Gate
 ### Características
 
 - 🔒 Sanitiza configuraciones OpenVPN (elimina `script-security`, `up`, `down`, `persist-key`, etc.)
+- 🛡️ Protección de fugas: DNS forzado por el túnel, IPv6 bloqueado, verificación del certificado del servidor (`remote-cert-tls`)
 - 🔀 Lista de servidores VPN Gate, unificada y cacheada (TTL 5 min)
 - ⚡ OpenVPN con credenciales inyectadas automáticamente (sin prompts en demonio)
 - 🌐 Verifica conectividad a Internet después de conectar (DNS + HTTP)

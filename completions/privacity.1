@@ -10,6 +10,11 @@ Fetches the fastest public VPN Gate servers, picks the best one, and
 connects via OpenVPN in the background.  Credentials for public servers
 (VPN Gate vpn/vpn) are injected automatically, so no interactive prompt
 is needed.  Daemon mode is the default.
+
+Leak protection is applied on every connection: server certificates are
+verified (remote-cert-tls), TLS 1.2+ is enforced, IPv6 is blackholed
+(VPN Gate is IPv4-only), DNS is forced through the tunnel, and the
+external IP is checked after connect to detect a dead tunnel.
 .SH OPTIONS
 .TP
 \fB\-c\fR, \fB\-\-country\fR \fIcountry\fR
