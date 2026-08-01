@@ -39,7 +39,7 @@ sudo make completions
 privacity
 ```
 
-[Installation](docs/installation.md) · [Usage](docs/usage.md) · [Configuration](docs/configuration.md) · [Architecture](docs/architecture.md) · [Development](docs/development.md)
+[Installation](docs/installation.md) · [Usage](docs/usage.md) · [Architecture](docs/architecture.md) · [Development](docs/development.md)
 
 ---
 
@@ -72,7 +72,7 @@ sudo make completions
 privacity
 ```
 
-[Instalación](docs/installation.md#espa%C3%B1ol) · [Uso](docs/usage.md#espa%C3%B1ol) · [Configuración](docs/configuration.md#espa%C3%B1ol) · [Arquitectura](docs/architecture.md#espa%C3%B1ol) · [Desarrollo](docs/development.md#espa%C3%B1ol)
+[Instalación](docs/installation.md#espa%C3%B1ol) · [Uso](docs/usage.md#espa%C3%B1ol) · [Arquitectura](docs/architecture.md#espa%C3%B1ol) · [Desarrollo](docs/development.md#espa%C3%B1ol)
 
 ---
 
