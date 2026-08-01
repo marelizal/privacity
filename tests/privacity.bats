@@ -310,6 +310,26 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
   [[ "$output" == *"vpn"* ]]
 }
 
+@test "disconnect cleans up state files even with stale PID" {
+  run bash -c '
+    source "'"$PRIVACITY"'" 2>/dev/null
+    _sudo() { "$@"; }
+    _restore_network() { echo restored > "$DIR/restored_marker"; }
+    echo "999999" > "$PID_FILE"
+    echo "vpn.example|Japan" > "$LAST_HOST"
+    printf "vpn\nvpn\n" > "$DIR/auth.txt"
+    cmd_disconnect >/dev/null 2>&1
+    echo "PID=$([[ -f "$PID_FILE" ]] && echo yes || echo no)"
+    echo "HOST=$([[ -f "$LAST_HOST" ]] && echo yes || echo no)"
+    echo "AUTH=$([[ -f "$DIR/auth.txt" ]] && echo yes || echo no)"
+    echo "RESTORED=$([[ -f "$DIR/restored_marker" ]] && echo yes || echo no)"
+  '
+  [[ "$output" == *"PID=no"* ]]
+  [[ "$output" == *"HOST=no"* ]]
+  [[ "$output" == *"AUTH=no"* ]]
+  [[ "$output" == *"RESTORED=yes"* ]]
+}
+
 # ──────── _stat_mtime ──────────────────────────────────────────────────────
 
 @test "_stat_mtime returns 0 for missing file" {

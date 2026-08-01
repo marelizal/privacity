@@ -167,11 +167,11 @@ _restore_network() {
 }
 
 cmd_disconnect() {
-  local pid
+  local pid found=false
   pid=$(read_pid)
 
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-    notify "Disconnected"
+    found=true
     log "Disconnecting (PID $pid)..."
     _sudo kill "$pid" 2>/dev/null || true
     wait "$pid" 2>/dev/null || true
@@ -180,20 +180,24 @@ cmd_disconnect() {
     local pids
     pids=$(pgrep -f "openvpn.*$OVPN_CONFIG" 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
+      found=true
       # shellcheck disable=SC2086
       _sudo kill $pids 2>/dev/null || true
       # shellcheck disable=SC2086
       wait $pids 2>/dev/null || true
-    else
-      warn "No active VPN connection found."
-      return 1
     fi
   fi
 
-  rm -f "$PID_FILE" "$LAST_HOST"
+  rm -f "$PID_FILE" "$LAST_HOST" "$DIR/auth.txt"
   _cleanup_tunnel
   _restore_network
-  log "Disconnected"
+
+  if $found; then
+    notify "Disconnected"
+    log "Disconnected"
+  else
+    warn "No active VPN connection found."
+  fi
 }
 
 cmd_status() {

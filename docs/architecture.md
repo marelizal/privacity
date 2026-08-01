@@ -74,7 +74,7 @@ Manages the OpenVPN connection lifecycle:
 | Function | Description |
 |---|---|
 | `connect_daemon <entry>` | Background connection, injects credentials (`auth.txt` + `--auth-user-pass`), writes PID file |
-| `cmd_disconnect` | Kill OpenVPN, remove PID/config, cleanup, restore network |
+| `cmd_disconnect` | Kill OpenVPN, remove PID/config/auth, cleanup tunnel, restore network |
 | `cmd_status` | Show connection state, IP, ping, speed |
 | `cmd_reconnect` | Pick new server, disconnect existing, connect |
 | `write_config <b64>` | Decode and sanitize Base64 OpenVPN config |
@@ -205,7 +205,7 @@ Gestiona el ciclo de vida de la conexión OpenVPN:
 | Función | Descripción |
 |---|---|
 | `connect_daemon <entrada>` | Conexión en segundo plano, inyecta credenciales (`auth.txt` + `--auth-user-pass`), escribe archivo PID |
-| `cmd_disconnect` | Matar OpenVPN, eliminar PID/config, limpiar, restaurar red |
+| `cmd_disconnect` | Matar OpenVPN, eliminar PID/config/auth, limpiar tunel, restaurar red |
 | `cmd_status` | Mostrar estado de conexión, IP, ping, velocidad |
 | `cmd_reconnect` | Elegir nuevo servidor, desconectar existente, conectar |
 | `write_config <b64>` | Decodificar y sanitizar configuración OpenVPN en Base64 |
