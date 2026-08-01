@@ -2,7 +2,7 @@
 # csv.sh — Server list orchestrator + unified pipe parser (module)
 set -euo pipefail
 
-PROVIDERS=(vpngate vpnbook)
+PROVIDERS=(vpngate)
 
 fetch_servers() {
   mkdir -p "$DIR/providers"
@@ -34,7 +34,6 @@ parse_servers() {
   local file="$1"
   local country_filter="${2:-}"
   local sort_by_ping="${3:-false}"
-  local protocol_filter="${4:-auto}"
 
   if [[ ! -f "$file" ]]; then
     warn "Server list not found."
@@ -49,7 +48,6 @@ parse_servers() {
 import sys
 country_filter = sys.argv[1].strip().lower() if len(sys.argv) > 1 else ''
 sort_by_ping = sys.argv[2].strip().lower() == 'true' if len(sys.argv) > 2 else False
-protocol_filter = sys.argv[3].strip().lower() if len(sys.argv) > 3 else 'auto'
 rows = []
 for line in sys.stdin:
     line = line.strip()
@@ -71,8 +69,6 @@ for line in sys.stdin:
         continue
     if country_filter and country_filter not in country_long.lower() and country_filter not in country_short.lower():
         continue
-    if protocol_filter and protocol_filter != 'auto' and protocol != protocol_filter:
-        continue
     rows.append((score, ping, hostname, country_long, country_short, protocol, b64, provider, auth))
 if sort_by_ping:
     rows.sort(key=lambda r: (r[1], -r[0]))
@@ -80,15 +76,14 @@ else:
     rows.sort(key=lambda r: -r[0])
 for score, ping, hostname, country_long, country_short, protocol, b64, provider, auth in rows:
     print(f'{hostname}|{country_long}|{country_short}|{score}|{ping}|{protocol}|{b64}|{provider}|{auth}')
-" "$country_filter" "$sort_by_ping" "$protocol_filter" 2>/dev/null < "$file"
+" "$country_filter" "$sort_by_ping" 2>/dev/null < "$file"
 }
 
 # Pick the single server to connect to: explicit --server match, else best of the list.
 pick_entry() {
   local country="${1:-}"
   local fast="${2:-false}"
-  local protocol="${3:-auto}"
-  local server="${4:-}"
+  local server="${3:-}"
 
   if ! _cache_fresh "$CSV"; then
     fetch_servers
@@ -105,7 +100,7 @@ pick_entry() {
   fi
 
   local -a servers
-  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast" "$protocol")
+  mapfile -t servers < <(parse_servers "$CSV" "$country" "$fast")
   ((${#servers[@]})) || _no_servers_hint "$country"
   printf '%s\n' "${servers[0]}"
 }

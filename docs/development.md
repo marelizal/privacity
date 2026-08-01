@@ -26,12 +26,12 @@ bash -n privacity lib/*.sh lib/providers/*.sh
 
 ### Test suite
 
-24 tests across two files (plus 3 integration tests that require network/WireGuard):
+42 tests across two files (plus integration tests that require network):
 
 | File | Type | Area |
 |---|---|---|
-| `tests/flow.bats` | Integration | Help, status, speedtest, net.sh, speed.sh, provider fetch |
-| `tests/privacity.bats` | Unit | parse_servers, write_config, _stat_mtime, VERSION, get_external_ip |
+| `tests/flow.bats` | Integration | Help, status, net.sh, provider fetch |
+| `tests/privacity.bats` | Unit | parse_servers, pick_entry/find_server_entry, connect_daemon auth, write_config, _stat_mtime, VERSION |
 
 Run all tests:
 
@@ -93,9 +93,6 @@ These lib modules can be run directly for debugging:
 ./lib/net.sh check
 ./lib/net.sh ip
 ./lib/net.sh ping
-
-# Speed test
-./lib/speed.sh
 ```
 
 ### Making a release
@@ -128,12 +125,12 @@ bash -n privacity lib/*.sh lib/providers/*.sh
 
 ### Suite de pruebas
 
-24 pruebas en dos archivos:
+42 pruebas en dos archivos (más pruebas de integración que requieren red):
 
 | Archivo | Tipo | Área |
 |---|---|---|
-| `tests/flow.bats` | Integración | Ayuda, estado, velocidad, net.sh, speed.sh, fetch proveedores |
-| `tests/privacity.bats` | Unitarias | parse_servers, write_config, _stat_mtime, VERSION, get_external_ip |
+| `tests/flow.bats` | Integración | Ayuda, estado, net.sh, fetch proveedores |
+| `tests/privacity.bats` | Unitarias | parse_servers, pick_entry/find_server_entry, connect_daemon auth, write_config, _stat_mtime, VERSION |
 
 Ejecutar todas las pruebas:
 
@@ -195,9 +192,6 @@ Estos módulos lib se pueden ejecutar directamente para depuración:
 ./lib/net.sh check
 ./lib/net.sh ip
 ./lib/net.sh ping
-
-# Prueba de velocidad
-./lib/speed.sh
 ```
 
 ### Crear un lanzamiento

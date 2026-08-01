@@ -49,7 +49,7 @@ connect_daemon() {
   write_config "$base64_data"
   save_host "$hostname" "$country_long"
 
-  # VPN Gate public servers always use vpn/vpn; VPNBook ships its own password.
+  # VPN Gate public servers always use vpn/vpn.
   if [[ -z "$auth" && "$provider" == "vpngate" ]]; then
     auth="vpn:vpn"
   fi
@@ -102,7 +102,6 @@ _restore_network() {
   _sudo ip route flush cache 2>/dev/null || true
 
   if command -v resolvectl &>/dev/null; then
-    _sudo resolvectl revert "$WG_INTERFACE" 2>/dev/null || true
     _sudo resolvectl revert tun0 2>/dev/null || true
     _sudo resolvectl flush-caches 2>/dev/null || true
   fi
@@ -117,11 +116,6 @@ _restore_network() {
 }
 
 cmd_disconnect() {
-  if ip link show "$WG_INTERFACE" &>/dev/null 2>&1; then
-    disconnect_wireguard
-    return 0
-  fi
-
   local pid
   pid=$(read_pid)
 
@@ -159,7 +153,6 @@ cmd_status() {
 
   local vpn_intf=""
   ip link show tun0 &>/dev/null 2>&1 && vpn_intf="tun0"
-  ip link show "$WG_INTERFACE" &>/dev/null 2>&1 && vpn_intf="$WG_INTERFACE"
 
   printf "\n  %sPrivacity%s %sstatus%s\n" "${BOLD}${WHITE}" "${NC}" "${DIM}" "${NC}"
 
@@ -194,12 +187,11 @@ cmd_status() {
 cmd_reconnect() {
   local country="${1:-}"
   local fast="${2:-false}"
-  local protocol="${3:-auto}"
-  local server="${4:-}"
+  local server="${3:-}"
   cmd_disconnect 2>/dev/null || true
   sleep 1
   local entry
-  entry=$(pick_entry "$country" "$fast" "$protocol" "$server")
+  entry=$(pick_entry "$country" "$fast" "$server")
   local h c
   h=$(echo "$entry" | cut -d'|' -f1)
   c=$(echo "$entry" | cut -d'|' -f2)

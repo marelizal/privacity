@@ -18,7 +18,6 @@ _privacity() {
     "disconnect:Tear down the current VPN"
     "reconnect:Pick a new server and reconnect"
     "status:Show connection info and live speed"
-    "speedtest:Measure download and upload speed"
     "update:Pull latest version and reinstall"
     "help:Show help"
   )
@@ -27,7 +26,6 @@ _privacity() {
     {-c,--country}'[Filter servers by country]:country:''
     '--server=[Connect to a specific server from the list]:host:'
     '--fast[Sort servers by lowest ping]'
-    '--protocol=[Force protocol: ovpn, wg, auto]:protocol:(ovpn wg auto)'
     '--log-file=[Write output to log file]:file:_files'
     '--verbose[Show timestamps and detailed output]'
   )

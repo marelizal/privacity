@@ -32,107 +32,66 @@
                           └──────┬───────┘
                                  │
                                  ▼
-                     ┌─────────────────────┐
-                     │   INTERACTIVE?      │
-                     │  (no subcommand =   │
-                     │   interactive)      │
-                     └──┬──────────────┬───┘
-                        │              │
-         YES (default)  │              │  NO (daemon|disconnect|...)
-                        ▼              │
-                 ┌──────────────┐      │
-                 │   DISPLAY    │      │
-                 │  top 3       │      │
-                 │  servers     │      │
-                 └──────┬───────┘      │
-                        │              │
-                        ▼              │
-                 ┌──────────────┐      │
-                 │   CONFIRM    │      │
-                 │  [Y/n]       │      │
-                 └──────┬───────┘      │
-                        │              │
-               ┌────────┴────────┐     │
-               │                 │     │
-            [Y] ▼                │     │
-        ┌──────────────┐         │  [N] ▼
-        │   WRITE      │         │  ┌──────────┐
-        │  config      │         │  │  EXIT    │
-        │  + sanitize  │         │  └──────────┘
-        └──────┬───────┘         │
-               │                 │
-               ▼                 │
-        ┌──────────────┐         │
-        │  OPENVPN     │         │
-        │  start       │         │
-        │  --cd "$DIR" │         │
-        └──────┬───────┘         │
-               │                 │
-               ▼                 │
-        ┌──────────────┐         │
-        │  TUNNEL      │         │
-        │  wait loop   │         │
-        │  (20s)       │         │
-        └──────┬───────┘         │
-               │                 │
-      ┌────────┴────────┐        │
-      │                 │        │
-   UP ▼                 │  FAIL  │
-   ┌──────────┐         ▼       │
-   │  CHECK   │  ┌──────────┐   │
-   │  internet│  │  ERROR   │   │
-   │  DNS+HTTP│  │  +kill   │   │
-   └────┬─────┘  └──────────┘   │
-        │                       │
-        ▼                       │
-   ┌──────────┐                 │
-   │  SPEED   │                 │
-   │  test    │                 │
-   │  10 MiB  │                 │
-   └────┬─────┘                 │
-        │                       │
-        ▼                       │
-   ┌──────────┐                 │
-   │  HEADER  │                 │
-   │  IP,     │                 │
-   │  Ping,   │                 │
-   │  Loc,    │                 │
-   │  Speed   │                 │
-   └────┬─────┘                 │
-        │                       │
-        ▼                       │
-   ┌──────────────┐             │
-   │  MONITOR     │             │
-   │  loop        │             │
-   │  RX/TX every │             │
-   │  2 seconds   │             │
-   └──┬───────┬───┘             │
-      │       │                 │
-   [Q]▼       │  [S]            │
-   ┌──────┐   ▼            ┌────┴────┐
-   │ KILL │   ┌──────────┐ │        │
-   │ +exit│   │ KILL     │ │        │
-   └──────┘   │ +return 1│ │        │
-              └────┬─────┘ │        │
-                   │       │        │
-                   └───┬───┘        │
-                       │            │
-                       ▼            │
-                ┌──────────────┐    │
-                │  LOOP AGAIN  │    │
-                │  (new best)  │────┘
-                └──────────────┘
+                          ┌──────────────┐
+                          │   PICK       │
+                          │  best server │  ◄── --server <host> | -c <country> | --fast
+                          │  (8th field) │
+                          └──────┬───────┘
+                                 │
+                                 ▼
+                          ┌──────────────┐
+                          │   WRITE      │
+                          │  config      │
+                          │  + sanitize  │
+                          │  + auth.txt  │
+                          └──────┬───────┘
+                                 │
+                                 ▼
+                          ┌──────────────┐
+                          │  OPENVPN     │
+                          │  start       │
+                          │  --daemon    │
+                          │  --auth-user-│
+                          │   pass       │
+                          └──────┬───────┘
+                                 │
+                                 ▼
+                          ┌──────────────┐
+                          │  TUNNEL      │
+                          │  wait loop   │
+                          │  (20s)       │
+                          └──────┬───────┘
+                                 │
+                      ┌──────────┴──────────┐
+                      │                     │
+                   UP ▼                 FAIL ▼
+                   ┌──────────┐     ┌──────────┐
+                   │  CHECK   │     │  ERROR   │
+                   │  internet│     │  +kill   │
+                   │  DNS+HTTP│     └──────────┘
+                   └────┬─────┘
+                        │
+                        ▼
+                   ┌──────────┐
+                   │  HEADER  │
+                   │  IP,     │
+                   │  Ping,   │
+                   │  Loc     │
+                   └──────────┘
 ```
+
+Daemon mode exits after connecting; `disconnect` and `status` act on
+the running OpenVPN process (PID file in the state dir).
 
 ## Subcommands
 
 ```
-privacity               ─────  Interactive guided mode (default)
+privacity               ─────  Daemon mode (default)
 privacity daemon        ─────  Daemon mode
 privacity disconnect    ─────  Kill tunnel + cleanup
 privacity reconnect     ─────  Disconnect → fetch → connect (daemon)
 privacity status        ─────  Show connection state + speed
-privacity speedtest     ─────  Download 10 MiB from Cloudflare
+privacity list          ─────  Show top servers + countries
 privacity update        ─────  git clone → make install
 privacity help          ─────  Show help
 ```

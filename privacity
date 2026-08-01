@@ -20,7 +20,6 @@
 #     privacity disconnect  Tear down the current VPN
 #     privacity reconnect   Pick a new server and reconnect
 #     privacity status      Show connection details and live speed
-#     privacity speedtest   Measure download & upload speed via Cloudflare
 #     privacity update      Pull latest version from git and reinstall
 #     privacity help        This message
 #
@@ -29,7 +28,6 @@
 #     --server <host>        Connect to a specific server (from the list)
 #     --countries            Show all available countries
 #     --fast                 Sort servers by lowest ping instead of highest score
-#     --protocol <ovpn|wg|auto>  Force VPN protocol (default: auto)
 #     --log-file <path>      Write output to log file
 #     --verbose              Show timestamps and detailed output
 #
@@ -48,7 +46,7 @@ else
   LIB_DIR="/usr/local/lib/privacity"
 fi
 # shellcheck disable=SC1090
-for _privacity_lib in common net speed csv ovpn wg; do
+for _privacity_lib in common net csv ovpn; do
   source "$LIB_DIR/$_privacity_lib.sh" 2>/dev/null || true
 done
 unset _privacity_lib
@@ -63,13 +61,7 @@ unset _privacity_prov
 
 connect_tunnel() {
   local entry="$1"
-  local protocol
-  protocol=$(echo "$entry" | cut -d'|' -f6)
-  case "$protocol" in
-    wg) connect_wireguard "$entry" ;;
-    ovpn) connect_daemon "$entry" ;;
-    *) die "Unknown protocol: $protocol" ;;
-  esac
+  connect_daemon "$entry"
 }
 
 # ──────── Update ─────────────────────────────────────────────────────────────
@@ -116,7 +108,6 @@ cmd_help() {
     ${GREEN}--server <host>${NC}   Connect to a specific server from the list
     ${GREEN}--countries${NC}       Show all available countries
     ${GREEN}--fast${NC}            Sort servers by lowest ping (ms)
-    ${GREEN}--protocol <type>${NC}  Force protocol: ovpn, wg, auto (default)
     ${GREEN}--log-file <path>${NC}  Write output to log file
     ${GREEN}--verbose${NC}          Show timestamps and detailed output
 
@@ -131,7 +122,6 @@ cmd_help() {
     ${GREEN}privacity disconnect${NC}  Tear down the current VPN
     ${GREEN}privacity reconnect${NC}   Pick a new server and reconnect
     ${GREEN}privacity status${NC}      Show connection details and live speed
-    ${GREEN}privacity speedtest${NC}   Measure download & upload speed
     ${GREEN}privacity update${NC}      Pull latest version and reinstall
     ${GREEN}privacity help${NC}        Show this message
 
@@ -149,18 +139,6 @@ cmd_help() {
     sudo make completions
 
 EOF
-}
-
-# ──────── Speedtest command ──────────────────────────────────────────────────
-
-cmd_speedtest() {
-  printf "\n"
-  local dl ul
-  dl=$(measure_speed)
-  log "Download speed: ${BOLD}${dl} Mbps${NC}"
-  ul=$(measure_upload_speed)
-  log "Upload speed:   ${BOLD}${ul} Mbps${NC}"
-  printf "\n"
 }
 
 # ──────── Countries command ─────────────────────────────────────────────────
@@ -259,20 +237,16 @@ main() {
   trap 'printf "\n"; exit 1' INT TERM
 
   check_deps
-  load_config
 
-  local country="${CONFIG_COUNTRY:-}"
-  local fast="${CONFIG_FAST:-false}"
-  local protocol="${CONFIG_PROTOCOL:-auto}"
+  local country=""
+  local fast=false
   local server=""
-  local default_mode="${CONFIG_MODE:-}"
   # shellcheck disable=SC2034
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -c|--country) country="$2"; shift 2 ;;
       --fast) fast=true; shift ;;
       --server) server="$2"; shift 2 ;;
-      --protocol) protocol="$2"; shift 2 ;;
       --log-file) LOG_FILE="$2"; shift 2 ;;
       --verbose) VERBOSE=true; shift ;;
       --countries) cmd_countries; exit 0 ;;
@@ -287,7 +261,7 @@ main() {
     printf "\n[%s] === privacity session started ===\n" "$(date '+%Y-%m-%d %H:%M:%S')"
   fi
 
-  local cmd="${1:-${default_mode:-daemon}}"
+  local cmd="${1:-daemon}"
 
   case "$cmd" in
     daemon|d)
@@ -303,7 +277,7 @@ main() {
           exit 0
           ;;
       esac
-      connect_best "$country" "$fast" "$protocol" "$server"
+      connect_best "$country" "$fast" "$server"
       ;;
 
     countries|paises)
@@ -315,7 +289,7 @@ main() {
       ;;
 
     reconnect|re)
-      cmd_reconnect "$country" "$fast" "$protocol" "$server"
+      cmd_reconnect "$country" "$fast" "$server"
       ;;
 
     status|st)
@@ -330,16 +304,12 @@ main() {
       cmd_update
       ;;
 
-    speedtest|speed)
-      cmd_speedtest
-      ;;
-
     help|--help|-h)
       cmd_help
       ;;
 
     *)
-      connect_best "$country" "$fast" "$protocol" "$server"
+      connect_best "$country" "$fast" "$server"
       ;;
   esac
 }
@@ -347,8 +317,7 @@ main() {
 connect_best() {
   local country="${1:-}"
   local fast="${2:-false}"
-  local protocol="${3:-auto}"
-  local server="${4:-}"
+  local server="${3:-}"
 
   if [[ "$fast" == "true" ]]; then
     log "Sorting servers by lowest ping...${country:+ ($country)}"
@@ -357,7 +326,7 @@ connect_best() {
   fi
 
   local entry
-  entry=$(pick_entry "$country" "$fast" "$protocol" "$server")
+  entry=$(pick_entry "$country" "$fast" "$server")
   connect_tunnel "$entry"
 }
 # shellcheck disable=SC2317

@@ -9,7 +9,6 @@ setup() {
   [ "$status" -eq 0 ]
   [[ "$output" == *"USAGE"* ]]
   [[ "$output" == *"COMMANDS"* ]]
-  [[ "$output" == *"speedtest"* ]]
   [[ "$output" == *"update"* ]]
 }
 
@@ -17,12 +16,6 @@ setup() {
   run ./privacity status
   [ "$status" -eq 0 ]
   [[ "$output" == *"onnect"* ]]
-}
-
-@test "speedtest runs and outputs Mbps" {
-  run timeout 30 ./privacity speedtest
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Mbps"* ]]
 }
 
 # ──────── Standalone net.sh tool ───────────────────────────────────────────
@@ -47,14 +40,6 @@ setup() {
 @test "net.sh ping returns latency or fallback dash" {
   run timeout 10 ./lib/net.sh ping
   [ "$status" -eq 0 ]
-}
-
-# ──────── Standalone speed.sh tool ─────────────────────────────────────────
-
-@test "speed.sh runs and shows result" {
-  run timeout 30 ./lib/speed.sh
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Mbps"* ]]
 }
 
 # ──────── Full server list flow ────────────────────────────────────────────

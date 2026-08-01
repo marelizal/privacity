@@ -212,7 +212,7 @@ PRIVACITY="${BATS_TEST_DIRNAME}/../privacity"
 
 @test "pick_entry returns specific server when --server given" {
   printf 'vpn1.example.com|Japan|JP|9999|10|ovpn|YmFk|vpngate|vpn:vpn\n' > "$CSV"
-  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; pick_entry "" false auto "vpn1"'
+  run bash -c 'source "'"$PRIVACITY"'" 2>/dev/null; pick_entry "" false "vpn1"'
   [ "$status" -eq 0 ]
   [[ "$output" == *"vpn1.example.com"* ]]
 }

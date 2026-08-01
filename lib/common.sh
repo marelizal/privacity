@@ -15,10 +15,7 @@ DIR="$DIR_BASE"
 CSV="$DIR/servers.csv"
 OVPN_CONFIG="$DIR/active.ovpn"
 PID_FILE="$DIR/privacity.pid"
-WG_INTERFACE="wg-privacity"
-WG_CONF="$DIR/wireguard.conf"
 LAST_HOST="$DIR/last_host"
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/privacity/config"
 LOG_FILE=""
 VERBOSE=false
 
@@ -98,14 +95,13 @@ _sudo() {
 check_deps() {
   local -a missing=() pkgs=()
   local dep pkg
-  for dep in openvpn wget curl wg-quick; do
+  for dep in openvpn wget curl; do
     if ! command -v "$dep" &>/dev/null; then
       missing+=("$dep")
       case "$dep" in
         openvpn)   pkgs+=(openvpn) ;;
         wget)      pkgs+=(wget) ;;
         curl)      pkgs+=(curl) ;;
-        wg-quick)  pkgs+=(wireguard-tools) ;;
       esac
     fi
   done
@@ -123,21 +119,6 @@ notify() {
   command -v notify-send &>/dev/null || return 0
   local urgency="${2:-normal}"
   notify-send -a privacity -u "$urgency" "Privacity" "$1" 2>/dev/null || true
-}
-
-load_config() {
-  [[ -f "$CONFIG_FILE" ]] || return 0
-  local key val
-  while IFS='=' read -r key val; do
-    key="${key// /}"
-    [[ -z "$key" || "$key" == \#* ]] && continue
-    case "$key" in
-      country)  CONFIG_COUNTRY="$val" ;;
-      mode)     CONFIG_MODE="$val" ;;
-      fast)     CONFIG_FAST="$val" ;;
-      protocol) CONFIG_PROTOCOL="$val" ;;
-    esac
-  done < "$CONFIG_FILE"
 }
 
 # ──────── Systemd user service ──────────────────────────────────────────────

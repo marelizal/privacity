@@ -15,7 +15,6 @@
 |---|---|
 | [Installation](installation.md) | Install, update, uninstall |
 | [Usage](usage.md) | Commands, options, examples |
-| [Configuration](configuration.md) | Config file, profiles, data dirs |
 | [Architecture](architecture.md) | How it works, flow, internals |
 | [Development](development.md) | Testing, linting, hacking |
 
@@ -25,6 +24,5 @@
 |---|---|
 | [Instalación](installation.md#espa%C3%B1ol) | Instalar, actualizar, desinstalar |
 | [Uso](usage.md#espa%C3%B1ol) | Comandos, opciones, ejemplos |
-| [Configuración](configuration.md#espa%C3%B1ol) | Archivo de configuración, perfiles, directorios |
 | [Arquitectura](architecture.md#espa%C3%B1ol) | Cómo funciona, flujo, internos |
 | [Desarrollo](development.md#espa%C3%B1ol) | Pruebas, linting, contribuciones |

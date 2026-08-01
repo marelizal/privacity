@@ -11,19 +11,18 @@
 ### Command structure
 
 ```
-privacity [options] <command> [args]
+privacity [options] <command>
 ```
 
-Global options must come **before** the command.
+Global options must come **before** the command. No command = daemon mode (connect to best server in background).
 
 ### Global options
 
 | Option | Description |
-|---|---|---|
-| `-c`, `--country <name>` | Filter servers by country (e.g. `Japan`, `US`, `Korea, Republic of`) |
+|---|---|
+| `-c`, `--country <name>` | Filter servers by country (e.g. `Japan`, `US`, `Korea`) |
 | `--server <host>` | Connect to a specific server (hostname or country from the list) |
 | `--fast` | Sort servers by lowest ping (ms) instead of highest score |
-| `--protocol <type>` | Force VPN protocol: `ovpn`, `wg`, or `auto` (default) |
 | `--countries` | Show all available countries (also via `privacity countries`) |
 | `--log-file <path>` | Write all output to a file (tee) |
 | `--verbose` | Show timestamps in output |
@@ -32,26 +31,14 @@ Global options must come **before** the command.
 
 #### `privacity` (daemon, default)
 
-Connect to the best available server in background. Supports protocol auto-detection.
+Connect to the best available server in background. Public VPN Gate servers authenticate automatically with the shared `vpn`/`vpn` credentials — no prompt.
 
 ```
 privacity
 privacity -c Japan
-privacity --protocol wg
 privacity -c Japan --fast
 privacity --server vpn123
 ```
-
-#### `countries`
-
-Show all available countries and their codes from the cached server list.
-
-```
-privacity countries
-privacity --countries
-```
-
-If the server list hasn't been downloaded yet, it fetches it first. Useful before using `-c`.
 
 #### `daemon`
 
@@ -63,30 +50,42 @@ privacity -c Japan daemon
 privacity -c Japan --fast daemon
 ```
 
-#### `--server`
+#### `daemon --persist` / `daemon --unpersist`
 
-Pick a specific server from the cached list (by hostname or country substring) and connect to it. Requires a fresh server list — fetch it with `privacity list` first if the cache is empty.
-
-```
-privacity --server vpn123 list     # find the server
-privacity --server vpn123          # connect to it
-privacity -c Japan --server tokyo  # combine with country filter
-```
-
-#### `daemon --persist`
-
-Install a systemd user service so the VPN connects automatically after login.
+Install / remove a systemd user service so the VPN auto-connects after login.
 
 ```
 privacity daemon --persist
-```
-
-#### `daemon --unpersist`
-
-Remove the systemd user service.
-
-```
 privacity daemon --unpersist
+```
+
+#### `--server`
+
+Pick a specific server from the cached list, by hostname or country (case-insensitive substring). Requires a fresh server list — run `privacity list` first if the cache is empty. Combine with `-c` to narrow the match.
+
+```
+privacity list                    # find servers
+privacity --server vpn123         # connect to it
+privacity -c Japan --server tokyo # hostname must match within Japan
+```
+
+#### `countries`
+
+Show all available countries. Fetches the list first if the cache is empty.
+
+```
+privacity countries
+privacity --countries
+```
+
+#### `list`
+
+Show the top 20 servers with score and ping (ms), plus available countries.
+
+```
+privacity list
+privacity -c Korea list
+privacity --fast list
 ```
 
 #### `disconnect`
@@ -99,7 +98,7 @@ privacity disconnect
 
 #### `reconnect`
 
-Pick the best server (optionally filtered by `-c`) and reconnect.
+Pick the best server (optionally filtered by `-c`/`--server`) and reconnect.
 
 ```
 privacity reconnect
@@ -114,28 +113,9 @@ Show connection details: server, country, external IP, ping, and live speed.
 privacity status
 ```
 
-#### `speedtest`
-
-Measure download and upload speed via Cloudflare.
-
-```
-privacity speedtest
-privacity -c Japan speedtest
-```
-
-#### `list`
-
-Show the top 20 servers with score and ping (ms), and all available countries.
-
-```
-privacity list
-privacity -c Korea list
-privacity --fast list
-```
-
 #### `update`
 
-Clone the latest version from GitHub and reinstall.
+Clone the latest version from GitHub and reinstall (also installs completions).
 
 ```
 privacity update
@@ -149,61 +129,22 @@ Print the help message.
 privacity help
 ```
 
-### Profiles
-
-Profiles isolate configuration and data. Use `--profile <name>` to create or use a profile:
-
-```
-privacity --profile personal daemon
-privacity --profile work daemon
-```
-
-Each profile has its own:
-- Config: `~/.config/privacity/<name>.config`
-- Data dir: `~/.local/share/privacity/<name>/`
-
 ### Logging
-
-Log all output to a file:
 
 ```
 privacity --log-file /tmp/vpn.log daemon
-```
-
-Combine with `--verbose` for timestamps:
-
-```
 privacity --verbose --log-file /tmp/vpn.log daemon
 ```
 
 ### Country filter
 
-The `-c` / `--country` flag works with most commands:
+Country matching is case-insensitive and supports partial matches.
 
 ```
 privacity -c Japan
-privacity -c "Korea, Republic of" daemon
+privacity -c "Korea" daemon
 privacity -c US list
-privacity -c Germany speedtest
 privacity -c France reconnect
-```
-
-Country matching is case-insensitive and supports partial matches.
-
-### Protocol selection
-
-The `--protocol` flag controls which VPN protocol to use:
-
-| Value | Behavior |
-|---|---|
-| `auto` (default) | Uses whatever protocol the server provides (openvpn or wireguard) |
-| `ovpn` | Only show OpenVPN servers |
-| `wg` | Only show WireGuard servers |
-
-```
-privacity --protocol wg
-privacity --protocol ovpn -c Japan
-privacity --fast --protocol auto
 ```
 
 ---
@@ -213,43 +154,33 @@ privacity --fast --protocol auto
 ### Estructura de comandos
 
 ```
-privacity [opciones] <comando> [args]
+privacity [opciones] <comando>
 ```
 
-Las opciones globales deben ir **antes** del comando.
+Las opciones globales deben ir **antes** del comando. Sin comando = modo demonio (conecta al mejor servidor en segundo plano).
 
 ### Opciones globales
 
 | Opción | Descripción |
-|---|---|---|
-| `-c`, `--country <nombre>` | Filtrar servidores por país (ej. `Japan`, `US`, `Korea, Republic of`) |
+|---|---|
+| `-c`, `--country <nombre>` | Filtrar servidores por país (ej. `Japan`, `US`, `Korea`) |
+| `--server <host>` | Conectar a un servidor específico (hostname o país de la lista) |
 | `--fast` | Ordenar servidores por ping más bajo (ms) en vez de puntuación |
-| `--protocol <tipo>` | Forzar protocolo VPN: `ovpn`, `wg` o `auto` (predeterminado) |
 | `--countries` | Mostrar todos los países disponibles (también vía `privacity countries`) |
-| `--profile <nombre>` | Perfil aislado (configuración + datos separados) |
 | `--log-file <ruta>` | Escribir toda la salida a un archivo (tee) |
 | `--verbose` | Mostrar marcas de tiempo en la salida |
 
 ### Comandos
 
-#### `privacity` (daemon, predeterminado)
+#### `privacity` (demonio, predeterminado)
 
-Conecta al mejor servidor disponible en segundo plano. Soporta detección automática de protocolo.
+Conecta al mejor servidor disponible en segundo plano. Los servidores públicos de VPN Gate autentican automáticamente con las credenciales compartidas `vpn`/`vpn` — sin prompts.
 
 ```
 privacity
 privacity -c Japan
-privacity --protocol wg
 privacity -c Japan --fast
-```
-
-#### `countries`
-
-Muestra todos los países disponibles y sus códigos de la lista de servidores cacheada.
-
-```
-privacity countries
-privacity --countries
+privacity --server vpn123
 ```
 
 #### `daemon`
@@ -260,23 +191,44 @@ Conectar en segundo plano. No requiere interacción con la terminal después del
 privacity daemon
 privacity -c Japan daemon
 privacity -c Japan --fast daemon
-privacity --profile trabajo daemon
 ```
 
-#### `daemon --persist`
+#### `daemon --persist` / `daemon --unpersist`
 
-Instalar un servicio de usuario de systemd para que la VPN conecte automáticamente al iniciar sesión.
+Instalar / eliminar un servicio de usuario de systemd para que la VPN conecte automáticamente al iniciar sesión.
 
 ```
 privacity daemon --persist
-```
-
-#### `daemon --unpersist`
-
-Eliminar el servicio de systemd.
-
-```
 privacity daemon --unpersist
+```
+
+#### `--server`
+
+Elegir un servidor específico de la lista cacheada, por hostname o país (subcadena sin distinguir mayúsculas). Requiere lista fresca — corre `privacity list` primero si la caché está vacía. Combínalo con `-c` para acotar.
+
+```
+privacity list                    # buscar servidores
+privacity --server vpn123         # conectar a ese
+privacity -c Japan --server tokyo # el hostname debe estar en Japan
+```
+
+#### `countries`
+
+Mostrar todos los países disponibles. Descarga la lista primero si la caché está vacía.
+
+```
+privacity countries
+privacity --countries
+```
+
+#### `list`
+
+Mostrar los 20 mejores servidores con puntuación y ping (ms), y todos los países disponibles.
+
+```
+privacity list
+privacity -c Korea list
+privacity --fast list
 ```
 
 #### `disconnect`
@@ -289,7 +241,7 @@ privacity disconnect
 
 #### `reconnect`
 
-Elegir el mejor servidor (opcionalmente filtrado por `-c`) y reconectar.
+Elegir el mejor servidor (opcionalmente filtrado por `-c`/`--server`) y reconectar.
 
 ```
 privacity reconnect
@@ -304,28 +256,9 @@ Mostrar detalles de la conexión: servidor, país, IP externa, ping y velocidad 
 privacity status
 ```
 
-#### `speedtest`
-
-Medir velocidad de descarga y subida vía Cloudflare.
-
-```
-privacity speedtest
-privacity -c Japan speedtest
-```
-
-#### `list`
-
-Mostrar los 20 mejores servidores con puntuación y ping (ms), y todos los países disponibles.
-
-```
-privacity list
-privacity -c Korea list
-privacity --fast list
-```
-
 #### `update`
 
-Clonar la última versión desde GitHub y reinstalar.
+Clonar la última versión desde GitHub y reinstalar (también instala completions).
 
 ```
 privacity update
@@ -339,59 +272,20 @@ Mostrar el mensaje de ayuda.
 privacity help
 ```
 
-### Perfiles
-
-Los perfiles aíslan la configuración y los datos. Usa `--profile <nombre>` para crear o usar un perfil:
-
-```
-privacity --profile personal daemon
-privacity --profile trabajo daemon
-```
-
-Cada perfil tiene su propio:
-- Config: `~/.config/privacity/<nombre>.config`
-- Directorio de datos: `~/.local/share/privacity/<nombre>/`
-
 ### Registro (logging)
-
-Guardar toda la salida en un archivo:
 
 ```
 privacity --log-file /tmp/vpn.log daemon
-```
-
-Combinar con `--verbose` para marcas de tiempo:
-
-```
 privacity --verbose --log-file /tmp/vpn.log daemon
 ```
 
 ### Filtro por país
 
-La bandera `-c` / `--country` funciona con la mayoría de los comandos:
+La coincidencia no distingue mayúsculas y admite coincidencias parciales.
 
 ```
 privacity -c Japan
-privacity -c "Korea, Republic of" daemon
+privacity -c "Korea" daemon
 privacity -c US list
-privacity -c Germany speedtest
 privacity -c France reconnect
-```
-
-La coincidencia no distingue mayúsculas y admite coincidencias parciales.
-
-### Selección de protocolo
-
-La bandera `--protocol` controla qué protocolo VPN usar:
-
-| Valor | Comportamiento |
-|---|---|
-| `auto` (predeterminado) | Usa el protocolo que provea el servidor (openvpn o wireguard) |
-| `ovpn` | Solo mostrar servidores OpenVPN |
-| `wg` | Solo mostrar servidores WireGuard |
-
-```
-privacity --protocol wg
-privacity --protocol ovpn -c Japan
-privacity --fast --protocol auto
 ```

@@ -4,12 +4,12 @@ privacity \- VPN Gate auto-connector (daemon-first)
 .SH SYNOPSIS
 .B privacity
 [\fB\-c\fR \fIcountry\fR] [\fB\-\-server\fR \fIhost\fR]
-[\fB\-\-fast\fR] [\fB\-\-protocol\fR \fItype\fR] [\fIcommand\fR]
+[\fB\-\-fast\fR] [\fIcommand\fR]
 .SH DESCRIPTION
 Fetches the fastest public VPN Gate servers, picks the best one, and
-connects via OpenVPN or WireGuard in the background.  Credentials for
-public servers (VPN Gate vpn/vpn, VPNBook) are injected automatically,
-so no interactive prompt is needed.  Daemon mode is the default.
+connects via OpenVPN in the background.  Credentials for public servers
+(VPN Gate vpn/vpn) are injected automatically, so no interactive prompt
+is needed.  Daemon mode is the default.
 .SH OPTIONS
 .TP
 \fB\-c\fR, \fB\-\-country\fR \fIcountry\fR
@@ -22,9 +22,6 @@ narrow the match.  See "privacity list" to find servers.
 .TP
 \fB\-\-fast\fR
 Sort servers by lowest ping (ms) instead of highest score.
-.TP
-\fB\-\-protocol\fR \fItype\fR
-Force VPN protocol: ovpn, wg, or auto (default).
 .TP
 \fB\-\-log-file\fR \fIpath\fR
 Write all output to the given log file (tee).
@@ -61,19 +58,12 @@ and reconnect.
 .B status
 Show current connection: server, country, external IP, ping, speed.
 .TP
-.B speedtest
-Measure download and upload speed via Cloudflare and print result in Mbps.
-.TP
 .B update
 Pull the latest version from git and reinstall.
 .TP
 .B help
 Show the help message with all commands and options.
 .SH FILES
-.TP
-\fI~/.config/privacity/config\fR
-Configuration file.  Format: \fBKEY=VALUE\fR.
-Supported keys: \fBcountry\fR, \fBmode\fR, \fBfast\fR, \fBprotocol\fR.
 .TP
 \fI~/.local/share/privacity/servers.csv\fR
 Cached VPN Gate server list (5 minute TTL).
@@ -115,7 +105,7 @@ Check current connection
 Reconnect to a US server
 .B privacity \-c US reconnect
 .SH DEPENDENCIES
-Runtime: openvpn, wget, curl, wg-quick, sudo.
+Runtime: openvpn, wget, curl, sudo.
 .SH AUTHOR
 Martin <https://github.com/marelizal>
 .SH BUGS
