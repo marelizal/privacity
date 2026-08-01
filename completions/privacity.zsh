@@ -14,6 +14,7 @@ _privacity() {
 
   local subcommands=(
     "daemon:Connect in background (no terminal)"
+    "countries:Show all available countries"
     "list:Show top servers and available countries"
     "disconnect:Tear down the current VPN"
     "reconnect:Pick a new server and reconnect"
@@ -26,6 +27,7 @@ _privacity() {
     {-c,--country}'[Filter servers by country]:country:''
     '--server=[Connect to a specific server from the list]:host:'
     '--fast[Sort servers by lowest ping]'
+    '--countries[Show all available countries]'
     '--log-file=[Write output to log file]:file:_files'
     '--verbose[Show timestamps and detailed output]'
   )
@@ -44,7 +46,7 @@ _privacity() {
         daemon)
           _arguments '--persist[Install systemd user service]' '--unpersist[Remove systemd user service]'
           ;;
-        help|list)
+        help|list|countries)
           _describe -t commands 'privacity subcommands' subcommands
           ;;
       esac

@@ -13,7 +13,7 @@
 | Package | Purpose |
 |---|---|
 | `openvpn` | VPN tunnel |
-| `wget`, `curl` | HTTP requests (server list, health checks, speed test) |
+| `wget`, `curl` | HTTP requests (server list, health checks) |
 | `base64` (coreutils) | Decode OpenVPN configs |
 | `sudo` | Privilege escalation for OpenVPN |
 | `python3` | CSV parsing (server list) |
@@ -69,7 +69,7 @@ rm -rf ~/.config/privacity ~/.local/share/privacity
 | Paquete | Propósito |
 |---|---|
 | `openvpn` | Túnel VPN |
-| `wget`, `curl` | Peticiones HTTP (lista de servidores, verificación, velocidad) |
+| `wget`, `curl` | Peticiones HTTP (lista de servidores, verificación) |
 | `base64` (coreutils) | Decodificar configuraciones OpenVPN |
 | `sudo` | Elevación de privilegios para OpenVPN |
 | `python3` | Análisis de CSV (lista de servidores) |

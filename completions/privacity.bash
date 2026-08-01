@@ -7,8 +7,8 @@ _privacity() {
   local cur prev words cword
   _init_completion || return
 
-  local subcommands="daemon list disconnect reconnect status update help"
-  local opts="-c --country --server --fast --log-file --verbose"
+  local subcommands="daemon countries list disconnect reconnect status update help"
+  local opts="-c --country --server --fast --countries --log-file --verbose"
  
   if [[ $cword -eq 1 ]]; then
     COMPREPLY=($(compgen -W "$subcommands $opts" -- "$cur"))
